@@ -10,7 +10,7 @@
 "and",OP_GEN,OP_DGEN,9,0,
 "or",OP_GEN,OP_DGEN,10,0,
 "xor",OP_GEN,OP_DGEN,11,0,
-"cmp",OP_GEN,OP_DGEN,12,0,
+"cmp",OP_GEN,OP_GEN,12,0,
 "halt",0,0,14,0,
 "abra",OP_GEN,OP_CC,15,1,
 "asub",OP_GEN,OP_CC,15,2,

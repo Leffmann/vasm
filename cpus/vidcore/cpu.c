@@ -611,7 +611,7 @@ static int translate(instruction *p,section *sec,taddr pc)
       if(!chkval(p->op[2]->offset,sec,pc,6,1)&&(!strcmp("add",mnemonics[c].name)||!strcmp("sub",mnemonics[c].name)))
 	c=replace(c,EN_ADD48);
     }else{
-      if((c<32)&&(!chkval(p->op[1]->offset,sec,pc,6,1)))
+      if((mnemonics[c].ext.code<32)&&(!chkval(p->op[1]->offset,sec,pc,6,1)))
 	c=replace(c,EN_ARITHI48);
     }
   }

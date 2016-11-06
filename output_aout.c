@@ -4,7 +4,7 @@
 #include "vasm.h"
 #include "output_aout.h"
 #if defined(OUTAOUT) && defined(MID)
-static char *copyright="vasm a.out output module 0.7b (c) 2008-2016 Frank Wille";
+static char *copyright="vasm a.out output module 0.7c (c) 2008-2016 Frank Wille";
 
 static section *sections[3];
 static utaddr secsize[3];
@@ -92,21 +92,27 @@ static uint32_t aoutstd_getrinfo(rlist **rl,int xtern,char *sname,int be)
 /* For xtern=-1, return true when this relocation requires a base symbol. */
 {
   nreloc *nr;
-  rlist *rl2;
-  uint32_t r=0,s=4;
-  int b=0;
 
   if (nr = (nreloc *)(*rl)->reloc) {
+    rlist *rl2 = (*rl)->next;
+    uint32_t r=0,s=4;
+    nreloc *nr2;
+    int b=0;
+
     switch ((*rl)->type) {
       case REL_ABS: b=-1; break;
       case REL_PC: b=RSTDB_pcrel; break;
       case REL_SD: b=RSTDB_baserel; break;
+      default: goto unsupp_reloc;
     }
+
     if (xtern == -1)  /* just query symbol-based relocation */
       return b==RSTDB_baserel || b==RSTDB_jmptable;
 
-    if (nr->bitoffset==0 && (*rl)->next==NULL &&
-        (nr->mask & MAKEMASK(nr->size)) == MAKEMASK(nr->size)) {
+    nr2 = rl2!=NULL ? (nreloc *)rl2->reloc : NULL;
+
+    if (nr->bitoffset==0 && (nr2==NULL || nr2->byteoffset!=nr->byteoffset)
+        && (nr->mask & MAKEMASK(nr->size)) == MAKEMASK(nr->size)) {
       switch (nr->size) {
         case 8: s=0; break;
         case 16: s=1; break;
@@ -114,24 +120,21 @@ static uint32_t aoutstd_getrinfo(rlist **rl,int xtern,char *sname,int be)
       }
     }
 #ifdef VASM_CPU_JAGRISC
-    else if (nr->size==16 && (rl2 = (*rl)->next)!=NULL) {
-      nreloc *nr2 = (nreloc *)rl2->reloc;
-
-      if (nr2!=NULL && nr->size==nr2->size &&
-          ((nr->mask==0xffff && nr2->mask==0xffff0000) ||
-           (nr->mask==0xffff0000 && nr2->mask==0xffff)) &&
-          ((nr->bitoffset==0 && nr2->bitoffset==16) ||
-           (nr->bitoffset==16 && nr2->bitoffset==0))) {
-        /* Jaguar RISC MOVEI instruction with swapped words, indicated by
-           a set RSTDB_copy bit. */
-        b = RSTDB_copy;
-        s = 2;
-        *rl = (*rl)->next;  /* skip additional entry */
-      }
+    else if (nr->size==16 && nr2!=NULL && nr2->size==16 &&
+        nr2->byteoffset==nr->byteoffset &&
+        ((nr->mask==0xffff && nr2->mask==0xffff0000) ||
+         (nr->mask==0xffff0000 && nr2->mask==0xffff)) &&
+        ((nr->bitoffset==0 && nr2->bitoffset==16) ||
+         (nr->bitoffset==16 && nr2->bitoffset==0))) {
+      /* Jaguar RISC MOVEI instruction with swapped words, indicated by
+         a set RSTDB_copy bit. */
+      b = RSTDB_copy;
+      s = 2;
+      *rl = (*rl)->next;  /* skip additional entry */
     }
 #endif
 
-    if (b && s<4) {
+    if (b!=0 && s<4) {
       if (b > 0)
         setbits(be,&r,sizeof(r)<<3,(unsigned)b,1,1);
       setbits(be,&r,sizeof(r)<<3,RSTDB_length,RSTDS_length,s);
@@ -140,6 +143,7 @@ static uint32_t aoutstd_getrinfo(rlist **rl,int xtern,char *sname,int be)
     }
   }
 
+unsupp_reloc:
   unsupp_reloc_error(*rl);
   return ~0;
 }

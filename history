@@ -1,7 +1,7 @@
 vasm history
 =============
 
-- 1.7g (NO-RELEASE)
+- 1.7g (02.11.16)
 o Avoid a crash or internal error in some output modules, when an equate
   refers to an undefined (imported) symbol.
 o m68k: Optimizing/translating to 68020+ addressing modes for MOVEM didn't
@@ -11,6 +11,8 @@ o m68k: Optimizing MOVEM was not attempted, when using a register list
   symbol in one operand and a label in the other.
 o m68k: Fixed -opt-movem & -opt-speed optimization of MOVEM with two
   registers, which saw a wrong instruction size and moved following labels.
+o aout-output: Instructions with more than one relocation were no longer
+  supported since V1.7f.
 
 - 1.7f (17.09.16)
 o Print a warning when a constant is not representable using the target

@@ -1281,9 +1281,9 @@ void print_expr(FILE *f,expr *p)
     ierror(0);
   simplify_expr(p);
   if(p->type==NUM)
-    fprintf(f,"%lld",(int64_t)p->c.val);
+    fprintf(f,"%lld",(long long)p->c.val);
   else if(p->type==HUG)
-    fprintf(f,"0x%016llx%016llx",p->c.huge.hi,p->c.huge.lo);
+    fprintf(f,"0x%016llx%016llx",(long long)p->c.huge.hi,(long long)p->c.huge.lo);
   else if(p->type==FLT)
     fprintf(f,"%.8g",(double)p->c.flt);
   else
