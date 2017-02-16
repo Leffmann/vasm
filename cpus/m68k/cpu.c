@@ -3920,7 +3920,7 @@ static unsigned char *write_extval(int num,size_t size,dblock *db,
                                    unsigned char *d,operand *op,int rtype)
 {
   if (rtype==REL_ABS && op->basetype[num]==BASE_PCREL)
-    op->extval[num] += (char *)d - db->data;  /* fix addend for label differences */
+    op->extval[num] += d - db->data;  /* fix addend for label differences */
 
   return setval(1,d,size,op->extval[num]);
 }

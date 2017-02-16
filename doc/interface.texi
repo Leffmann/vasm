@@ -436,6 +436,14 @@ following members that can be accessed by the modules:.
         Symbols flagged as @code{EQUATE} are constant and its value must
         not be changed.
 
+@item #define REGLIST (1<<13)
+        Symbol is a register list definition.
+
+@item #define USED (1<<14)
+        Symbol appeared in an expression. Symbols which were only defined,
+        (as label or equte) and never used throughout the whole source,
+        don't get this flag set.
+
 @item #define RSRVD_S (1L<<24)
         The range from bit 24 to 27 (counted from the LSB) is reserved for
         use by the syntax module.
@@ -903,6 +911,13 @@ These macros should return non-zero if and only if the argument is a
 valid character to start an identifier or a valid character inside an
 identifier, respectively.
 @code{ISIDCHAR} must be a superset of @code{ISIDSTART}.
+
+@item #define ISBADID(p,l)
+Even with @code{ISIDSTART} and @code{ISIDCHAR} checked, there may be
+combinations of characters which do not form a valid initializer (for
+example, a single character). This macro returns non-zero, when this is
+the case. First argument is a pointer to the new identifier and second
+is its length.
 
 @item #define ISEOL(x)
 This macro returns true when the string pointing at @code{x} is either

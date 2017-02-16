@@ -306,7 +306,7 @@ void print_atom(FILE *f,atom *p)
     case DATA:
       fprintf(f,"data(%lu): ",(unsigned long)p->content.db->size);
       for (i=0;i<p->content.db->size;i++)
-        fprintf(f,"%02x ",(unsigned char)p->content.db->data[i]);
+        fprintf(f,"%02x ",p->content.db->data[i]);
       for (rl=p->content.db->relocs; rl; rl=rl->next)
         print_reloc(f,rl->type,rl->reloc);
       break;
@@ -359,7 +359,10 @@ void print_atom(FILE *f,atom *p)
               p->content.nlist->name!=NULL ? p->content.nlist->name : "<NULL>",
               p->content.nlist->type,p->content.nlist->other,
               p->content.nlist->desc);
-      print_expr(f,p->content.nlist->value);
+      if (p->content.nlist->value != NULL)
+        print_expr(f,p->content.nlist->value);
+      else
+        fprintf(f,"NULL");
       break;
     default:
       ierror(0);

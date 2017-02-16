@@ -4,7 +4,7 @@ M68k and ColdFire families of CPUs, which is available with the extension
 
 @section Legal
 
-    This module is copyright in 2002-2016 by Frank Wille.
+    This module is copyright in 2002-2017 by Frank Wille.
 
     This archive may be redistributed without modifications and used
     for non-commercial purposes.

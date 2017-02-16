@@ -1,5 +1,5 @@
 /* expr.c expression handling for vasm */
-/* (c) in 2002-2016 by Volker Barthelmann and Frank Wille */
+/* (c) in 2002-2017 by Volker Barthelmann and Frank Wille */
 
 #include "vasm.h"
 
@@ -97,6 +97,7 @@ static expr *primary_expr(void)
     symbol *sym=find_symbol(name);
     if(!sym)
       sym=new_import(name);
+    sym->flags|=USED;
     if (sym->type!=EXPRESSION){
       new=new_expr();
       new->type=SYM;
@@ -212,6 +213,7 @@ static expr *primary_expr(void)
 #endif
       sym=new_import(name);
     }
+    sym->flags|=USED;
     if (sym->type!=EXPRESSION){
       new=new_expr();
       new->type=SYM;
@@ -1281,7 +1283,7 @@ void print_expr(FILE *f,expr *p)
     ierror(0);
   simplify_expr(p);
   if(p->type==NUM)
-    fprintf(f,"%lld",(long long)p->c.val);
+    fprintf(f,"%lld=0x%llx",(long long)p->c.val,ULLTADDR(p->c.val));
   else if(p->type==HUG)
     fprintf(f,"0x%016llx%016llx",(long long)p->c.huge.hi,(long long)p->c.huge.lo);
   else if(p->type==FLT)

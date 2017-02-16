@@ -936,14 +936,14 @@ static int macro_arg_defined(source *src,char *argstart,char *argend,char *d)
            '1' : '0';
     return 1;
   }
-  return -1;
+  return 0;
 }
 
 
 /* expands arguments and special escape codes into macro context */
 int expand_macro(source *src,char **line,char *d,int dlen)
 {
-  int nc = -1;
+  int nc = 0;
   int n;
   char *s = *line;
   char *end;
@@ -952,46 +952,50 @@ int expand_macro(source *src,char **line,char *d,int dlen)
     /* possible macro expansion detected */
 
     if (*s == '\\') {
-      *d++ = *s++;
-      if (esc_sequences) {
-        *d++ = '\\';  /* make it a double \ again */
-        nc = 2;
-      }
-      else
-        nc = 1;
-    }
-
-    else if (*s == '~') {
-      /* \~: insert a unique id */
-      char buf[16];
-
-      nc = sprintf(buf,"M%lu",src->id);
-      if (dlen >= nc) {
-        s++;
-        memcpy(d,buf,nc);
+      if (dlen >= 1) {
+        *d++ = *s++;
+        if (esc_sequences) {
+          if (dlen >= 2) {
+            *d++ = '\\';  /* make it a double \ again */
+            nc = 2;
+          }
+          else
+            nc = -1;
+        }
+        else
+          nc = 1;
       }
       else
         nc = -1;
     }
+
+    else if (*s == '~') {
+      /* \~: insert a unique id */
+      nc = snprintf(d,dlen,"M%lu",src->id);
+      s++;
+    }
     else if (*s == '#') {
       /* \# : insert number of parameters */
-      if (dlen >= 2) {
-        nc = sprintf(d,"%d",src->num_params);
-        s++;
-      }
+      nc = snprintf(d,dlen,"%d",src->num_params);
+      s++;
     }
     else if (*s == '!') {
       /* \!: copy qualifier (dot-size) */
-      *d++ = '.';
-      nc = 1 + copy_macro_qual(src,0,d,dlen);
-      s++;
+      if (dlen > 1) {
+        *d++ = '.';
+        if ((nc = copy_macro_qual(src,0,d,dlen)) >= 0)
+          nc++;
+        s++;
+      }
+      else
+        nc = -1;
     }
     else if (isdigit((unsigned char)*s)) {
       /* \1..\9,\0 : insert macro parameter 1..9,10 */
       nc = copy_macro_param(src,*s=='0'?0:*s-'1',d,dlen);
       s++;
     }
-    else if (*s=='?' && dlen>0) {
+    else if (*s=='?' && dlen>=1) {
       if ((end = skip_identifier(s+1)) != NULL) {
         /* \?argname : 1 when argument defined, 0 when missing or empty */
         if ((nc = macro_arg_defined(src,s+1,end,d)) >= 0)
@@ -1022,11 +1026,13 @@ int expand_macro(source *src,char **line,char *d,int dlen)
       }
     }
 
-    if (nc >= 0)
+    if (nc >= dlen)
+      nc = -1;
+    else if (nc >= 0)
       *line = s;  /* update line pointer when expansion took place */
   }
 
-  return nc;  /* number of chars written to line buffer, -1: no expansion */
+  return nc;  /* number of chars written to line buffer, -1: out of space */
 }
 
 

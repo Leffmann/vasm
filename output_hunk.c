@@ -1,10 +1,10 @@
 /* output_hunk.c AmigaOS hunk format output driver for vasm */
-/* (c) in 2002-2016 by Frank Wille */
+/* (c) in 2002-2017 by Frank Wille */
 
 #include "vasm.h"
 #include "output_hunk.h"
 #if defined(OUTHUNK) && (defined(VASM_CPU_M68K) || defined(VASM_CPU_PPC))
-static char *copyright="vasm hunk format output module 2.8a (c) 2002-2016 Frank Wille";
+static char *copyright="vasm hunk format output module 2.9 (c) 2002-2017 Frank Wille";
 int hunk_onlyglobal;
 
 static int databss;
@@ -12,7 +12,9 @@ static int kick1;
 static int exthunk;
 static int genlinedebug;
 static int keep_empty_sects;
+
 static uint32_t sec_cnt;
+static symbol **secsyms;
 
 
 static uint32_t strlen32(char *s)
@@ -98,22 +100,35 @@ static uint32_t scan_attr(section *sec)
 }
 
 
-static section *check_symbols(section *first_sec,symbol *sym)
-/* Make sure that every common symbol is referenced, otherwise there
+static section *prepare_sections(section *first_sec,symbol *sym)
+/* Remove empty sections.
+   Assign all symbol definitions to their respective section.
+   Make sure that every common-symbol is referenced, otherwise there
    is no possibility to represent such a symbol in hunk format.
    Additionally we have to guarantee that at least one section exists,
-   when there are any symbols. */
+   when there are any symbols.
+   Remember the total number of sections left in sec_cnt. */
 {
-  atom *a;
+  section *sec,*first_nonbss;
+  symbol *nextsym;
   rlist *rl;
-  section *sec,*first_nonbss=NULL;
-  int abs_detect = 0;  /* any absolute symbol definitions present? */
+  atom *a;
 
-  for (sec=first_sec; sec; sec=sec->next) {
-    if (scan_attr(sec) != HUNK_BSS)
+  for (sec_cnt=0,sec=first_sec,first_nonbss=NULL; sec!=NULL; sec=sec->next) {
+    /* ignore empty sections without symbols, unless -keepempty was given */
+    if (keep_empty_sects || get_sec_size(sec)!=0 || (sec->flags&HAS_SYMBOLS)) {
+      sec->idx = sec_cnt++;
+    }
+    else {
+      sec->flags |= SEC_DELETED;
+      continue;
+    }
+
+    /* determine first initialized section for common-symbol references */
+    if (first_nonbss==NULL && scan_attr(sec)!=HUNK_BSS)
       first_nonbss = sec;
 
-    /* remember all common-symbol references */
+    /* flag all present common-symbol references from this section */
     for (a=sec->first; a; a=a->next) {
       if (a->type == DATA) {
         for (rl=a->content.db->relocs; rl; rl=rl->next) {
@@ -130,62 +145,65 @@ static section *check_symbols(section *first_sec,symbol *sym)
     }
   }
 
-  /* check common symbols */
-  for (; sym; sym=sym->next) {
-    if (*sym->name == ' ')  /* internal symbol - will be ignored */
-      sym->flags |= VASMINTERN;
-    else if ((sym->flags & COMMON) && !(sym->flags & COMM_REFERENCED)) {
-      /* create a dummy reference for each unreferenced common symbol */
-      dblock *db = new_dblock();
-      nreloc *r = new_nreloc();
-      rlist *rl = mymalloc(sizeof(rlist));
+  /* Allocate symbol lists for all sections.
+     Get one more for a potential dummy section. */
+  secsyms = mycalloc((sec_cnt+1)*sizeof(symbol *));
 
-      db->size = 4;
-      db->data = mycalloc(db->size);
-      db->relocs = rl;
-      rl->next = NULL;
-      rl->type = REL_ABS;
-      rl->reloc = r;
-      r->size = 32;
-      r->sym = sym;
-      if (first_nonbss == NULL) {
-        first_nonbss = dummy_section();
-        if (first_sec == NULL)
-          first_sec = first_nonbss;
+  /* Assign all valid symbol definitions to their section symbol list.
+     Check for missing common-symbol references. */
+  while (sym != NULL) {
+    nextsym = sym->next;
+
+    if (*sym->name != ' ') {  /* internal symbols will be ignored */
+      if ((sym->flags & COMMON) && !(sym->flags & COMM_REFERENCED)) {
+        /* create a dummy reference for each unreferenced common symbol */
+        dblock *db = new_dblock();
+        nreloc *r = new_nreloc();
+        rlist *rl = mymalloc(sizeof(rlist));
+
+        db->size = 4;
+        db->data = mycalloc(db->size);
+        db->relocs = rl;
+        rl->next = NULL;
+        rl->type = REL_ABS;
+        rl->reloc = r;
+        r->size = 32;
+        r->sym = sym;
+        if (first_nonbss == NULL) {
+          first_nonbss = dummy_section();
+          if (first_sec == NULL)
+            first_sec = first_nonbss;
+          first_nonbss->idx = sec_cnt++;
+        }
+        add_atom(first_nonbss,new_data_atom(db,4));
       }
-      add_atom(first_nonbss,new_data_atom(db,4));
-    }
-    else if (sym->flags & WEAK) {
-      /* weak symbols are not supported, make it global */
-      sym->flags &= ~WEAK;
-      sym->flags |= EXPORT;
-      output_error(10,sym->name);
-    }
-    else if (sym->type==EXPRESSION && (sym->flags & EXPORT))
-      abs_detect = 1;
-  }
+      else if (sym->flags & WEAK) {
+        /* weak symbols are not supported, make them global */
+        sym->flags &= ~WEAK;
+        sym->flags |= EXPORT;
+        output_error(10,sym->name);
+      }
 
-  /* find section for absolute symbols, when present */
-  if (abs_detect) {
-    if (first_sec == NULL)
-      first_sec = dummy_section();
-    first_sec->flags |= HAS_SYMBOLS;
-  }
+      if (sym->type==LABSYM ||
+               (sym->type==EXPRESSION && (sym->flags&EXPORT))) {
+        if (sym->type == EXPRESSION) {
+          /* put absolute globals symbols into the first section */
+          if (first_sec == NULL) {
+            first_sec = first_nonbss = dummy_section();
+            first_sec->idx = sec_cnt++;
+          }
+          first_sec->flags |= HAS_SYMBOLS;
+          sym->sec = first_sec;
+        }
+        /* assign symbols to the section they are defined in */
+        sym->next = secsyms[sym->sec->idx];
+        secsyms[sym->sec->idx] = sym;
+      }
+    }
 
+    sym = nextsym;
+  }
   return first_sec;
-}
-
-
-static void prepare_sections(section *sec)
-/* assign an index to each section, delete empty ones,
-   set sec_cnt to number of sections present */
-{
-  for (sec_cnt=0; sec!=NULL; sec=sec->next) {
-    if (keep_empty_sects || get_sec_size(sec)!=0 || (sec->flags & HAS_SYMBOLS))
-      sec->idx = sec_cnt++;
-    else
-      sec->flags |= SEC_DELETED;
-  }
 }
 
 
@@ -198,7 +216,7 @@ static utaddr file_size(section *sec)
 
   for (a=sec->first; a; a=a->next) {
     int zerodata = 1;
-    char *d;
+    unsigned char *d;
 
     npc = pcalign(a,pc);
     if (a->type == DATA) {
@@ -223,7 +241,7 @@ static utaddr file_size(section *sec)
       }
       else {
         for (d=a->content.sb->fill;
-             d<(char *)a->content.sb->fill+a->content.sb->size; d++) {
+             d<a->content.sb->fill+a->content.sb->size; d++) {
           if (*d) {
             zerodata = 0;
             break;
@@ -602,26 +620,24 @@ static void ext_refs(FILE *f,struct list *xreflist)
 }
 
 
-static void ext_defs(FILE *f,symbol *sym,int symtype,int global,
-                     size_t idx,uint32_t xtype)
+static void ext_defs(FILE *f,int symtype,int global,size_t idx,
+                     uint32_t xtype)
 {
   int header = 0;
+  symbol *sym;
 
-  for (; sym; sym=sym->next) {
-    if (!(sym->flags & VASMINTERN)) {
-      if (sym->type==symtype && (sym->flags&global)==global &&
-          (symtype==EXPRESSION ? 1 : sym->sec->idx==idx)) {
-        if (!header) {
-          header = 1;
-          if (xtype == EXT_SYMB)
-            fw32(f,HUNK_SYMBOL,1);
-          else
-            extheader(f);
-        }
-        fw32(f,(xtype<<24) | strlen32(sym->name),1);
-        fwname(f,sym->name);
-        fw32(f,(uint32_t)get_sym_value(sym),1);
+  for (sym=secsyms[idx]; sym; sym=sym->next) {
+    if (sym->type==symtype && (sym->flags&global)==global) {
+      if (!header) {
+        header = 1;
+        if (xtype == EXT_SYMB)
+          fw32(f,HUNK_SYMBOL,1);
+        else
+          extheader(f);
       }
+      fw32(f,(xtype<<24) | strlen32(sym->name),1);
+      fwname(f,sym->name);
+      fw32(f,(uint32_t)get_sym_value(sym),1);
     }
   }
   if (header && xtype==EXT_SYMB)
@@ -633,8 +649,7 @@ static void write_object(FILE *f,section *sec,symbol *sym)
 {
   int wrotesec = 0;
 
-  sec = check_symbols(sec,sym);
-  prepare_sections(sec);
+  sec = prepare_sections(sec,sym);
 
   /* write header */
   fw32(f,HUNK_UNIT,1);
@@ -717,14 +732,14 @@ static void write_object(FILE *f,section *sec,symbol *sym)
         exthunk = 0;
         ext_refs(f,&xreflist);
         if (sec->idx == 0)  /* absolute definitions into first hunk */
-          ext_defs(f,sym,EXPRESSION,EXPORT,0,EXT_ABS);
-        ext_defs(f,sym,LABSYM,EXPORT,sec->idx,EXT_DEF);
+          ext_defs(f,EXPRESSION,EXPORT,0,EXT_ABS);
+        ext_defs(f,LABSYM,EXPORT,sec->idx,EXT_DEF);
         exttrailer(f);
 
         if (!no_symbols) {
           /* symbol table */
           if (!hunk_onlyglobal)
-            ext_defs(f,sym,LABSYM,0,sec->idx,EXT_SYMB);
+            ext_defs(f,LABSYM,0,sec->idx,EXT_SYMB);
           /* line-debug */
           linedebug_hunk(f,&linedblist,num_linedb);
         }
@@ -749,8 +764,7 @@ static void write_exec(FILE *f,section *sec,symbol *sym)
 {
   section *s;
 
-  sec = check_symbols(sec,sym);
-  prepare_sections(sec);
+  sec = prepare_sections(sec,sym);
 
   /* write header */
   fw32(f,HUNK_HEADER,1);
@@ -830,7 +844,8 @@ static void write_exec(FILE *f,section *sec,symbol *sym)
 
         if (!no_symbols) {
           /* symbol table */
-          ext_defs(f,sym,LABSYM,0,sec->idx,EXT_SYMB);
+          if (!hunk_onlyglobal)
+            ext_defs(f,LABSYM,0,sec->idx,EXT_SYMB);
           /* line-debug */
           linedebug_hunk(f,&linedblist,num_linedb);
         }

@@ -401,7 +401,7 @@ The frontend has the following error messages:
 @item 52: macro name conflicts with mnemonic
 @item 53: macro name conflicts with directive
 @item 54: non-relocatable expression in equate <%s>
-@item 55: line buffer overflow
+@item 55: initialized data in offset section
 @item 56: illegal structure recursion
 @item 57: maximum number of macro recursions (%d) reached
 @item 58: data has been auto-aligned

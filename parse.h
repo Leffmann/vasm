@@ -1,11 +1,11 @@
 /* parse.h - global parser support functions */
-/* (c) in 2009-2015 by Volker Barthelmann and Frank Wille */
+/* (c) in 2009-2016 by Volker Barthelmann and Frank Wille */
 
 #ifndef PARSE_H
 #define PARSE_H 
 
 /* defines */
-#define MAXLINELENGTH 4096
+#define INITLINELEN 256
 #ifndef MAXMACPARAMS
 #define MAXMACPARAMS 9
 #endif

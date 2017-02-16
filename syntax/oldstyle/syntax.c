@@ -1,5 +1,5 @@
 /* syntax.c  syntax module for vasm */
-/* (c) in 2002-2016 by Frank Wille */
+/* (c) in 2002-2017 by Frank Wille */
 
 #include "vasm.h"
 
@@ -12,7 +12,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm oldstyle syntax module 0.12e (c) 2002-2016 Frank Wille";
+char *syntax_copyright="vasm oldstyle syntax module 0.12f (c) 2002-2017 Frank Wille";
 hashtable *dirhash;
 
 static char textname[]=".text",textattr[]="acrx";
@@ -56,6 +56,7 @@ static struct namelen dendr_dirlist[] = {
 static int dotdirs = 0;
 static int autoexport = 0;
 static int parse_end = 0;
+static taddr orgmode = ~0;
 
 
 char *skip(char *s)
@@ -761,10 +762,29 @@ static void handle_list(char *s)
   set_listing(1);
 }
 
-
 static void handle_nolist(char *s)
 {
   set_listing(0);
+}
+
+static void handle_listttl(char *s)
+{
+  /* set listing file title */
+}
+
+static void handle_listsubttl(char *s)
+{
+  /* set listing file sub-title */
+}
+
+static void handle_listpage(char *s)
+{
+  /* new listing page */
+}
+
+static void handle_listspace(char *s)
+{
+  /* insert listing space */
 }
 
 
@@ -919,6 +939,10 @@ struct {
   "fdb",handle_d16,
   "bsz",handle_spc8,
   "zmb",handle_spc8,
+  "nam",handle_listttl,
+  "subttl",handle_listsubttl,
+  "page",handle_listpage,
+  "space",handle_listspace
 };
 
 int dir_cnt = sizeof(directives) / sizeof(directives[0]);
@@ -1077,7 +1101,7 @@ static char *parse_label_or_pc(char **start)
   s = skip(*start);
   if (name==NULL && *s==current_pc_char && !ISIDCHAR(*(s+1))) {
     name = cnvstr(s,1);
-    s = skip(s+2);
+    s = skip(s+1);
   }
   if (name)
     *start = s;
@@ -1295,7 +1319,7 @@ char *parse_macro_arg(struct macro *m,char *s,
 /* expands arguments and special escape codes into macro context */
 int expand_macro(source *src,char **line,char *d,int dlen)
 {
-  int nc = -1;
+  int nc = 0;
   int n;
   char *s = *line;
   char *end;
@@ -1304,25 +1328,28 @@ int expand_macro(source *src,char **line,char *d,int dlen)
     /* possible macro expansion detected */
 
     if (*s == '\\') {
-      *d++ = *s++;
-      if (esc_sequences) {
-        *d++ = '\\';  /* make it a double \ again */
-        nc = 2;
+      if (dlen >= 1) {
+        *d++ = *s++;
+        if (esc_sequences) {
+          if (dlen >= 2) {
+            *d++ = '\\';  /* make it a double \ again */
+            nc = 2;
+          }
+          else
+            nc = -1;
+        }
+        else
+          nc = 1;
       }
       else
-        nc = 1;
+        nc = -1;
     }
 
     else if (*s == '@') {
       /* \@: insert a unique id */
-      char buf[16];
-
-      nc = sprintf(buf,"_%06lu",src->id);
-      if (dlen >= nc) {
-        s++;
-        memcpy(d,buf,nc);
-      }
-      else
+      nc = snprintf(d,dlen,"_%06lu",src->id);
+      s++;
+      if (nc >= dlen)
         nc = -1;
     }
     else if (*s=='(' && *(s+1)==')') {
@@ -1347,7 +1374,7 @@ int expand_macro(source *src,char **line,char *d,int dlen)
       *line = s;  /* update line pointer when expansion took place */
   }
 
-  return nc;  /* number of chars written to line buffer, -1: no expansion */
+  return nc;  /* number of chars written to line buffer, -1: out of space */
 }
 
 
@@ -1513,6 +1540,8 @@ int init_syntax()
   }
   cond_init();
   current_pc_char = '*';
+  if (orgmode != ~0)
+    set_section(new_org(orgmode));
   return 1;
 }
 
@@ -1525,6 +1554,10 @@ int syntax_args(char *p)
   }
   else if (!strcmp(p,"-autoexp")) {
     autoexport = 1;
+    return 1;
+  }
+  else if (!strncmp(p,"-org=",5)) {
+    orgmode = atoi(p+5);
     return 1;
   }
   return 0;

@@ -13,7 +13,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm std syntax module 5.0b (c) 2002-2016 Volker Barthelmann";
+char *syntax_copyright="vasm std syntax module 5.0c (c) 2002-2016 Volker Barthelmann";
 hashtable *dirhash;
 
 static char textname[]=".text",textattr[]="acrx";
@@ -99,13 +99,14 @@ char *skip_operand(char *s)
   while(1){
     c = *s;
     if(START_PARENTH(c)) par_cnt++;
-    if(END_PARENTH(c)){
+    else if(END_PARENTH(c)){
       if(par_cnt>0)
         par_cnt--;
       else
         syntax_error(3);
-    }
-    if(ISEOL(s)||(c==','&&par_cnt==0))
+    }else if(c=='\''||c=='\"')
+      s=skip_string(s,c,NULL)-1;
+    else if(ISEOL(s)||(c==','&&par_cnt==0))
       break;
     s++;
   }
@@ -1269,21 +1270,15 @@ char *parse_macro_arg(struct macro *m,char *s,
 /* expands arguments and special escape codes into macro context */
 int expand_macro(source *src,char **line,char *d,int dlen)
 {
-  int n,nc=-1;
+  int n,nc=0;
   char *end,*s=*line;
 
   if (*s++ == '\\') {
     /* possible macro expansion detected */
     if (*s == '@') {
       /* \@: insert a unique id */
-      char buf[16];
-
-      nc = sprintf(buf,"%lu",src->id);
-      if (dlen >= nc) {
-        s++;
-        memcpy(d,buf,nc);
-      }
-      else
+      nc = sprintf(d,"%lu",src->id);
+      if (nc >= dlen)
         nc = -1;
     }
     else if (*s=='(' && *(s+1)==')') {
@@ -1301,7 +1296,7 @@ int expand_macro(source *src,char **line,char *d,int dlen)
     if (nc >= 0)
       *line = s;  /* update line pointer when expansion took place */
   }           
-  return nc;  /* number of chars written to line buffer, -1: no expansion */
+  return nc;  /* number of chars written to line buffer, -1: out of space */
 }
 
 void my_exec_macro(source *src)

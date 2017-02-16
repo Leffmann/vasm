@@ -1,5 +1,5 @@
 /* syntax.c  syntax module for vasm */
-/* (c) in 2002-2016 by Frank Wille */
+/* (c) in 2002-2017 by Frank Wille */
 
 #include "vasm.h"
 
@@ -12,7 +12,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm motorola syntax module 3.9d (c) 2002-2016 Frank Wille";
+char *syntax_copyright="vasm motorola syntax module 3.9e (c) 2002-2017 Frank Wille";
 hashtable *dirhash;
 char commentchar = ';';
 
@@ -1964,59 +1964,86 @@ static int copy_macro_carg(source *src,int inc,char *d,int len)
 /* expands arguments and special escape codes into macro context */
 int expand_macro(source *src,char **line,char *d,int dlen)
 {
-  int nc = -1;
+  int nc = 0;
   char *s = *line;
 
   if (*s++ == '\\') {
     /* possible macro expansion detected */
 
     if (*s == '\\') {
-      *d++ = *s++;
-      if (esc_sequences) {
-        *d++ = '\\';  /* make it a double \ again */
-        nc = 2;
+      if (dlen >= 1) {
+        *d++ = *s++;
+        if (esc_sequences) {
+          if (dlen >= 2) {
+            *d++ = '\\';  /* make it a double \ again */
+            nc = 2;
+          }
+          else
+            nc = -1;
+        }
+        else
+          nc = 1;
       }
       else
-        nc = 1;
+        nc = -1;
     }
+
 
     else if (*s == '@') {
       /* \@ : insert a unique id "_nnnnnn" */
-      if (dlen >= 7) {
-        unsigned long unique_id = src->id;
+      unsigned long unique_id;
 
-        s++;
-        if (*s == '!') {
-          /* push id onto stack */
-          if (id_stack_index >= IDSTACKSIZE)
-            syntax_error(16);  /* id stack overflow */
-          else
-            id_stack[id_stack_index++] = unique_id;
-          s++;              
+      s++;
+      if (*s == '@') {
+        /* pull id from stack */
+        if (id_stack_index <= 0) {
+          syntax_error(17);  /* id pull without matching push */
+          return 0;
         }
-        else if (*s == '?') {
-          /* push id below the top item on the stack */
-          if (id_stack_index >= IDSTACKSIZE)
-            syntax_error(16);  /* id stack overflow */
-          else if (id_stack_index <= 0)
-            syntax_error(14);  /* insert on empty id stack */
-          else {
-            id_stack[id_stack_index] = id_stack[id_stack_index-1];
-            id_stack[id_stack_index-1] = unique_id;
-            ++id_stack_index;
-          }
-          s++;
-        }
-        else if (*s == '@') {
-          /* pull id from stack */
-          if (id_stack_index <= 0)
-            syntax_error(17);  /* id pull without matching push */
-          else
-            unique_id = id_stack[--id_stack_index];
-          s++;
-        }
-        nc = sprintf(d,"_%06lu",unique_id);
+        else
+          unique_id = id_stack[id_stack_index-1];
       }
+      else
+        unique_id = src->id;
+
+      nc = snprintf(d,dlen,"_%06lu",unique_id);
+      if (nc < dlen) {
+        switch (*s) {
+          case '!':
+            /* push id onto stack */
+            if (id_stack_index >= IDSTACKSIZE) {
+              syntax_error(16);  /* id stack overflow */
+              return 0;
+            }
+            else
+              id_stack[id_stack_index++] = unique_id;
+            s++;
+            break;
+          case '?':
+            /* push id below the top item on the stack */
+            if (id_stack_index >= IDSTACKSIZE) {
+              syntax_error(16);  /* id stack overflow */
+              return 0;
+            }
+            else if (id_stack_index <= 0) {
+              syntax_error(14);  /* insert on empty id stack */
+              return 0;
+            }
+            else {
+              id_stack[id_stack_index] = id_stack[id_stack_index-1];
+              id_stack[id_stack_index-1] = unique_id;
+              ++id_stack_index;
+            }
+            s++;
+            break;
+          case '@':
+            --id_stack_index;
+            s++;
+            break;
+        }
+      }
+      else
+        nc = -1;
     }
 
     else if (*s == '<') {
@@ -2037,34 +2064,34 @@ int expand_macro(source *src,char **line,char *d,int dlen)
           if (eval_expr(sym->expr,&val,NULL,0))
             nc = sprintf(d,fmt,(unsigned long)(uint32_t)val);
         }
-        if (*s++!='>' || nc<0)
-          syntax_error(19);  /* invalid numeric expansion */
         myfree(name);
+        if (*s++!='>' || nc<0) {
+          syntax_error(19);  /* invalid numeric expansion */
+          return 0;
+        }
       }
-      else
+      else {
         syntax_error(10);  /* identifier expected */
+        return 0;
+      }
     }
 
     else if (*s == '#') {
       /* \# : insert number of parameters */
-      if (dlen >= 2) {
-        nc = sprintf(d,"%d",src->num_params);
-        s++;
-      }
+      nc = sprintf(d,"%d",src->num_params);
+      s++;
     }
 
     else if (*s=='?' && isdigit((unsigned char)*(s+1))) {
       /* \?n : insert parameter n length */
-      if (dlen >= 3) {
-        nc = sprintf(d,"%d",*(s+1)=='0'?
+      nc = sprintf(d,"%d",*(s+1)=='0'?
 #if MAX_QUALIFIERS > 0
-                            src->qual_len[0]:
+                          src->qual_len[0]:
 #else
-                            0:
+                          0:
 #endif
-                            src->param_len[*(s+1)-'1']);
-        s += 2;
-      }
+                          src->param_len[*(s+1)-'1']);
+      s += 2;
     }
 
     else if (*s == '.') {
@@ -2100,11 +2127,13 @@ int expand_macro(source *src,char **line,char *d,int dlen)
         s++;
     }
 
-    if (nc >= 0)
+    if (nc >= dlen)
+      nc = -1;
+    else if (nc >= 0)
       *line = s;  /* update line pointer when expansion took place */
   }
 
-  return nc;  /* number of chars written to line buffer, -1: no expansion */
+  return nc;  /* number of chars written to line buffer, -1: out of space */
 }
 
 
@@ -2243,6 +2272,7 @@ int syntax_args(char *p)
     esc_sequences = 0;
     allmp = 1;
     dot_idchar = 1;
+    warn_unalloc_ini_dat = 1;
     return 1;
   }
   else if (!strcmp(p,"-phxass")) {

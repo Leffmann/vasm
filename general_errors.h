@@ -52,7 +52,7 @@
   "macro name conflicts with mnemonic",WARNING,
   "macro name conflicts with directive",WARNING,
   "non-relocatable expression in equate <%s>",NOLINE|ERROR,
-  "line buffer overflow",ERROR|FATAL,
+  "initialized data in offset section",WARNING,
   "illegal structure recursion",ERROR|FATAL,                    /* 55 */
   "maximum number of macro recursions (%d) reached",ERROR|FATAL,
   "data has been auto-aligned",WARNING,

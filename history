@@ -1,6 +1,33 @@
 vasm history
 =============
 
+- 1.7h (14.02.17)
+o Implemented a dynamic line buffer. No limitations on line lengths anymore.
+o Octal escape sequences are limited to a maximum of three digits.
+o Allow assembler text output (echo, printv) in offset sections.
+o Print a warning for initialized data in a bss-type section. This already
+  worked in the past (1.2c and later), but has been lost somewhere.
+o Some single-character labels and symbols will be rejected (depending
+  on the syntax module).
+o -maxerrors=0 should print all errors in the source.
+o Print expressions in the listing file and the test output in decimal and
+  hexadecimal form.
+o m68k: Immediate- and PC-relative destination addressing modes for 68851
+  PMOVE are not allowed. PMOVE ea,PCSR doesn't exist.
+o 6502: Perform zero-page optimization with a known label from an absolute
+  section.
+o std-syntax: Fixed problem with parentheses in character constants.
+o oldstyle-syntax: New option -org=<address> to set the absolute base
+  address of the program from the command line.
+o oldstyle-syntax: Implemented some listing file directives, but without
+  any function yet: nam, subttl, page, space.
+o bin-output: Fixed output section sorting, which didn't work with some
+  implementations of qsort().
+o elf-output: Fixed external references in stabs.
+o elf-output: Use a hash table for ELF symbols to speed up the output.
+o hunk-output: Optimization to make it faster with many sections.
+o test-output: Fixed crash when printing stabs without a value.
+
 - 1.7g (02.11.16)
 o Avoid a crash or internal error in some output modules, when an equate
   refers to an undefined (imported) symbol.

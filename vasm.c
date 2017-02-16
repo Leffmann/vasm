@@ -1,5 +1,5 @@
 /* vasm.c  main module for vasm */
-/* (c) in 2002-2016 by Volker Barthelmann */
+/* (c) in 2002-2017 by Volker Barthelmann */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -7,8 +7,8 @@
 #include "vasm.h"
 #include "stabs.h"
 
-#define _VER "vasm 1.7g"
-char *copyright = _VER " (c) in 2002-2016 Volker Barthelmann";
+#define _VER "vasm 1.7h"
+char *copyright = _VER " (c) in 2002-2017 Volker Barthelmann";
 #ifdef AMIGA
 static const char *_ver = "$VER: " _VER " " __AMIGADATE__ "\r\n";
 #endif
@@ -37,6 +37,7 @@ int pic_check;
 int done,final_pass,debug;
 int exec_out;
 int chklabels;
+int warn_unalloc_ini_dat;
 int listena,listformfeed=1,listlinesperpage=40,listnosyms;
 listing *first_listing,*last_listing,*cur_listing;
 struct stabdef *first_nlist,*last_nlist;
@@ -110,11 +111,9 @@ void leave(void)
     exit(EXIT_SUCCESS);
 }
 
-/* Removes all unallocated (offset) sections from the list and converts
-   their label symbols into absolute expressions. */
-static void remove_unalloc_sects(void)
+/* Convert all labels from an offset-section into absolute expressions. */
+static void convert_offset_labels(void)
 {
-  section *prev,*sec;
   symbol *sym;
 
   for (sym=first_symbol; sym; sym=sym->next) {
@@ -124,6 +123,13 @@ static void remove_unalloc_sects(void)
       sym->sec = NULL;
     }
   }
+}
+
+/* Removes all unallocated (offset) sections from the list. */
+static void remove_unalloc_sects(void)
+{
+  section *prev,*sec;
+
   for (sec=first_section,prev=NULL; sec; sec=sec->next) {
     if (sec->flags&UNALLOCATED) {
       if (prev)
@@ -155,6 +161,8 @@ static void new_stabdef(aoutnlist *nlist,section *sec)
        new->base = NULL;
        general_error(38);  /* illegal relocation */
     }
+    else if (new->base != NULL)
+      new->base->flags |= REFERENCED;
   }
   if (last_nlist)
     last_nlist = last_nlist->next = new;
@@ -276,23 +284,15 @@ static void assemble(void)
   taddr rorg_pc=0;
   taddr org_pc;
   atom *p;
-  char *attr;
   int bss;
 
-  remove_unalloc_sects();
+  convert_offset_labels();
   final_pass=1;
   for(sec=first_section;sec;sec=sec->next){
     source *lasterrsrc=NULL;
     int lasterrline=0;
     sec->pc=sec->org;
-    attr=sec->attr;
-    bss=0;
-    while(*attr){
-      if(*attr++=='u'){
-        bss=1;
-        break;
-      }
-    }
+    bss=strchr(sec->attr,'u')!=NULL;
     for(p=sec->first;p;p=p->next){
       basepc=sec->pc;
       sec->pc=pcalign(p,sec->pc);
@@ -376,13 +376,6 @@ static void assemble(void)
         else
           general_error(30);  /* expression must be constant */
       }
-      else if(p->type==DATA&&bss){
-        if(lasterrsrc!=p->src||lasterrline!=p->line){
-          general_error(31);  /* initialized data in bss */
-          lasterrsrc=p->src;
-          lasterrline=p->line;
-        }
-      }
 #if HAVE_CPU_OPTS
       else if(p->type==OPTS)
         cpu_opts(p->content.opts);
@@ -404,6 +397,18 @@ static void assemble(void)
       }
       else if(p->type==NLIST)
         new_stabdef(p->content.nlist,sec);
+      if(p->type==DATA&&bss){
+        if(lasterrsrc!=p->src||lasterrline!=p->line){
+          if(sec->flags&UNALLOCATED){
+            if(warn_unalloc_ini_dat)
+            general_error(54);  /* initialized data in offset section */
+          }
+          else
+            general_error(31);  /* initialized data in bss */
+          lasterrsrc=p->src;
+          lasterrline=p->line;
+        }
+      }
       sec->pc+=atom_size(p,sec,sec->pc);
       sec->flags&=~RESOLVE_WARN;
     }
@@ -414,6 +419,7 @@ static void assemble(void)
       sec->flags&=~ABSOLUTE;
     }
   }
+  remove_unalloc_sects();
 }
 
 static void undef_syms(void)
@@ -964,7 +970,8 @@ source *new_source(char *filename,char *text,size_t size)
   s->id = id++;	        /* every source has unique id - important for macros */
   s->srcptr = text;
   s->line = 0;
-  s->linebuf = mymalloc(MAXLINELENGTH);
+  s->bufsize = INITLINELEN;
+  s->linebuf = mymalloc(INITLINELEN);
 #ifdef CARGSYM
   s->cargexp = NULL;
 #endif
