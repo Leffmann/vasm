@@ -7,7 +7,7 @@
 #include "vasm.h"
 #include "stabs.h"
 
-#define _VER "vasm 1.7h"
+#define _VER "vasm 1.8"
 char *copyright = _VER " (c) in 2002-2017 Volker Barthelmann";
 #ifdef AMIGA
 static const char *_ver = "$VER: " _VER " " __AMIGADATE__ "\r\n";
@@ -53,7 +53,7 @@ static int listtitlecnt;
 
 static FILE *outfile=NULL;
 
-static int depend;
+static int depend,depend_all;
 #define DEPEND_LIST     1
 #define DEPEND_MAKE     2
 struct deplist {
@@ -682,18 +682,20 @@ int main(int argc,char **argv)
         continue;
       }
     }
-    if(!strncmp("-depend=",argv[i],8)){
-      if (!strcmp("list",&argv[i][8])) {
+    if(!strncmp("-depend=",argv[i],8) || !strncmp("-dependall=",argv[i],11)){
+      depend_all=argv[i][7]!='=';
+      if(!strcmp("list",&argv[i][depend_all?11:8])){
         depend=DEPEND_LIST;
         continue;
       }
-      else if (!strcmp("make",&argv[i][8])) {
+      else if(!strcmp("make",&argv[i][depend_all?11:8])){
         depend=DEPEND_MAKE;
         continue;
       }
     }
     if(!strcmp("-unnamed-sections",argv[i])){
       unnamed_sections=1;
+
       continue;
     }
     if(!strcmp("-ignore-mult-inc",argv[i])){
@@ -829,11 +831,12 @@ FILE *locate_file(char *filename,char *mode)
   struct include_path *ipath;
   FILE *f;
 
-  if (*filename=='.' || *filename=='/' || *filename=='\\' ||
-      strchr(filename,':')!=NULL) {
+  if (*filename=='.' || abs_path(filename)) {
     /* file name is absolute, then don't use any include paths */
+    /* @@@ FIXME: '.' is currently stripped by convert_path() */
     if (f = fopen(filename,mode)) {
-      add_depend(filename);
+      if (depend_all)
+        add_depend(pathbuf);
       return f;
     }
   }
@@ -844,7 +847,8 @@ FILE *locate_file(char *filename,char *mode)
         strcpy(pathbuf,ipath->path);
         strcat(pathbuf,filename);
         if (f = fopen(pathbuf,mode)) {
-          add_depend(pathbuf);
+          if (depend_all || !abs_path(pathbuf))
+            add_depend(pathbuf);
           return f;
         }
       }

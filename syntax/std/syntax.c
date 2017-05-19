@@ -1,5 +1,5 @@
 /* syntax.c  syntax module for vasm */
-/* (c) in 2002-2016 by Volker Barthelmann and Frank Wille */
+/* (c) in 2002-2017 by Volker Barthelmann and Frank Wille */
 
 #include "vasm.h"
 #include "stabs.h"
@@ -13,7 +13,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm std syntax module 5.0c (c) 2002-2016 Volker Barthelmann";
+char *syntax_copyright="vasm std syntax module 5.1 (c) 2002-2017 Volker Barthelmann";
 hashtable *dirhash;
 
 static char textname[]=".text",textattr[]="acrx";
@@ -1346,19 +1346,20 @@ char *get_local_label(char **start)
 
   if (*s == '.') {
     s++;
-    while (isdigit((unsigned char)*s) || *s=='_')  /* '_' needed for '\@' */
+    while (isdigit((unsigned char)*s) || *s=='_')  /* '_' needed for ".\@" */
       s++;
     if (s > (*start+1)) {
       name = make_local_label(NULL,0,*start,s-*start);
       *start = skip(s);
     }
   }
-  else if (isalnum((unsigned char)*s) || *s=='_') {
+  else if (isdigit((unsigned char)*s) || *s=='_') {  /* '_' needed for "\@$" */
     s++;
-    while (ISIDCHAR(*s))
+    while (isdigit((unsigned char)*s))
       s++;
-    if (s>(*start+1) && *(s-1)=='$') {
-      name = make_local_label(NULL,0,*start,(s-1)-*start);
+    if (*s=='$' && isdigit((unsigned char)*(s-1))) {
+      s++;
+      name = make_local_label(NULL,0,*start,s-*start);
       *start = skip(s);
     }
   }

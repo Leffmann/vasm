@@ -34,6 +34,12 @@ or additional options.
         a sequence of file names on a single line, suitable for Makefiles.
         When the output file name is given by @option{-o} then
         @command{vasm} will also print @code{outname:} in front of it.
+        Note that unlike with @option{-dependall} only relative include
+        file dependencies will be listed (which is the common case).
+
+@item -dependall=<type>
+        Prints dependencies in the same way as @option{-depend}, but
+        will also print all include files with absolute paths.
 
 @item -esc
         Enable escape character sequences. This will make vasm treat the
@@ -323,6 +329,7 @@ Has to be provided completely by the syntax module.
 @itemize
     @item Joseph Zatarski
     @item Frank Wille
+    @item Henryk Richter
     @item Sebastian Pachuta
     @item Esben Norby
     @item Gunther Nikl

@@ -968,16 +968,15 @@ char *read_next_line(void)
       if (dir = dirlist_match(s,srcend,enddir_list)) {
         if (cur_macro != NULL) {
           add_macro();  /* link macro-definition into hash-table */
-          s += dir->len;
           enddir_list = NULL;
           break;
         }
         else if (--rept_nest == 0) {
           rept_end = s;
-          s += dir->len;
           enddir_list = NULL;
           break;
         }
+        s += dir->len;
       }
       else if (cur_macro==NULL && reptdir_list!=NULL &&
                (dir = dirlist_match(s,srcend,reptdir_list)) != NULL) {

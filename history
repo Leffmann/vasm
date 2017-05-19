@@ -1,6 +1,29 @@
 vasm history
 =============
 
+- 1.8 (16.05.17)
+o External references in ORG or RORG sections are allowed.
+o Option -depend only prints relative include file names, while the new
+  option -dependall prints all included file names, also with absolute paths.
+o m68k: Support for Apollo Core 68080 and AMMX ISA.
+o m68k: MSP, ISP and MMUSR are no valid 68060 control registers.
+o 6502: Fixed potential segfault during zero-page optimization (new since
+  last version).
+o jagrisc: Fixed SHLQ instruction.
+o mot-syntax: Make NREF directive work for PhxAss compatibility. Allows
+  optimization of absolute references to base-relative.
+o std-syntax: Labels ending on '$' are only local when all preceding
+  characters are digits.
+o madmac-syntax: Fixed .long directive (which only aligned to even bytes).
+o oldstyle-syntax: New options -i (ignore everything in the operand after a
+  blank), -noc (no C-style constant prefixes) and -noi (no intel-style
+  constant suffixes).
+o oldstyle-syntax: Z80 supports multiple directives or instructions per
+  line, separated by a ':' character.
+o oldstyle-syntax: Fixed parser problem with nested repeat/endrepeat blocks.
+o output-hunk: -kick1hunks must not forbid base relative relocs and
+  references. It was supported by some 1.3 linkers (blink for example).
+
 - 1.7h (14.02.17)
 o Implemented a dynamic line buffer. No limitations on line lengths anymore.
 o Octal escape sequences are limited to a maximum of three digits.

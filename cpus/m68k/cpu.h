@@ -1,6 +1,6 @@
 /*
 ** cpu.h Motorola M68k, CPU32 and ColdFire cpu-description header-file
-** (c) in 2002,2006-2015 by Frank Wille
+** (c) in 2002,2006-2017 by Frank Wille
 */
 
 #define BIGENDIAN 1
@@ -86,8 +86,13 @@ typedef struct {
 #define DATA_ALIGN(n) ((n<=8)?1:2)
 
 /* operand class for n-bit data definitions */
-int m68k_data_operand(int);
 #define DATA_OPERAND(n) m68k_data_operand(n)
+
+/* returns true when instruction is valid for selected cpu */
+#define MNEMONIC_VALID(n) m68k_available(n)
+
+/* parse cpu-specific directives with label */
+#define PARSE_CPU_LABEL(l,s) parse_cpu_label(l,s)
 
 /* type to store each operand */
 typedef struct {
@@ -105,6 +110,7 @@ typedef struct {
 } operand;
 
 /* flags */
+/* Note: FL_CheckMask bits are used together with optype.flags OTF-bits */
 #define FL_ExtVal0          1   /* extval[0] is set */
 #define FL_ExtVal1          2   /* extval[1] is set */
 #define FL_UsesFormat       4   /* operand uses format word */
@@ -112,21 +118,23 @@ typedef struct {
 #define FL_noCPU32       0x10   /* addressing mode not available for CPU32 */
 #define FL_BFoffsetDyn   0x20   /* dynamic bitfield offset specified */
 #define FL_BFwidthDyn    0x40   /* dynamic bitfield width specified */
+#define FL_DoNotEval     0x80   /* do not evaluate, extval and base are ok */
 /*#define FL_PossRegList   0x80    parser is not sure if operand is RegList */
 #define FL_NoOptBase    0x100   /* never optimize base displacement */
 #define FL_NoOptOuter   0x200   /* never optimize outer displacement */
 #define FL_NoOpt        0x300   /* never optimize this whole operand */
-#define FL_DoNotEval    0x400   /* do not evaluate, extval and base are ok */
-#define FL_MAC          0x800   /* ColdFire MAC specific extensions */
-#define FL_Bitfield    0x1000   /* operand uses bf_offset/bf_width */
-#define FL_DoubleReg   0x2000   /* Dm:Dn or (Rm):(Rn), where both registers
+#define FL_BaseReg      0x400   /* BASEREG expression in exp.value[0] */
+#define FL_BnReg       0x1000   /* Apollo: Bn register instead of An */
+#define FL_MAC         0x2000   /* ColdFire MAC specific extensions */
+#define FL_Bitfield    0x4000   /* operand uses bf_offset/bf_width */
+#define FL_DoubleReg   0x8000   /* Dm:Dn or (Rm):(Rn), where both registers
                                    are put into "reg": 0nnn0mmm */
-#define FL_KFactor     0x4000   /* k-factor <ea>{#n} or <ea>{Dn}, which
+#define FL_KFactor    0x10000   /* k-factor <ea>{#n} or <ea>{Dn}, which
                                    can be found in bf_offset */
-#define FL_FPSpec      0x8000   /* special FPU reg. FPIAR/FPCR/FPSR only */
-#define FL_CheckMask   0xf800   /* bits to check when comparing with
+#define FL_FPSpec     0x20000   /* special FPU reg. FPIAR/FPCR/FPSR only */
+
+#define FL_CheckMask  0x3f000   /* bits to check, when comparing with
                                    flags from struct optype */
-#define FL_BaseReg    0x10000   /* BASEREG expression in exp.value[0] */
 
 /* addressing modes */
 #define MODE_Dn           0
@@ -172,12 +180,14 @@ typedef struct {
 
 /* register macros */
 #define REGAn             8
-#define REGPC             16
+#define REGPC             0x10
+#define REGBn             0x20          /* Apollo only */
 #define REGZero           0x80
 #define REGisAn(n)        ((n)&REGAn)
 #define REGisDn(n)        (!((n)&REGAn))
 #define REGisPC(n)        ((n)&REGPC)
 #define REGisZero(n)      ((n)&REGZero)
+#define REGisBn(n)        ((n)&REGBn)   /* Apollo only */
 #define REGget(n)         ((n)&(REGAn-1))
 #define REGgetA(n)        ((n)&(REGPC-1))
 #define REGext_Shift      8
@@ -237,22 +247,25 @@ struct addrmode {
 /* operand types */
 struct optype {
   uint16_t modes;         /* addressing modes allowed (0-15, see above) */
-  uint16_t flags;
-  signed char first;
-  signed char last;
+  uint32_t flags;
+  unsigned char first;
+  unsigned char last;
 };
 
 /* flags */
-#define OTF_NOSIZE    1   /* this addr. mode requires no additional bytes */
-#define OTF_BRANCH    2   /* branch instruction */
-#define OTF_DATA      4   /* data definition */
-#define OTF_FLTIMM    8   /* base10 immediate values are floating point */
-#define OTF_QUADIMM  16   /* immediate values are 64 bits */
-#define OTF_SPECREG  32   /* check for special registers during parse */
-#define OTF_SRRANGE  64   /* check range between first/last only */
-#define OTF_REGLIST 128   /* register list required, even when single reg. */
-#define OTF_CHKVAL  256   /* compare op. value against first/last */
-#define OTF_CHKREG  512   /* compare op. register against first/last */
+/* Note: Do not allocate bits from FL_CheckMask! */
+#define OTF_NOSIZE      1 /* this addr. mode requires no additional bytes */
+#define OTF_BRANCH      2 /* branch instruction */
+#define OTF_DATA        4 /* data definition */
+#define OTF_FLTIMM      8 /* base10 immediate values are floating point */
+#define OTF_QUADIMM  0x10 /* immediate values are 64 bits */
+#define OTF_SPECREG  0x20 /* check for special registers during parse */
+#define OTF_SRRANGE  0x40 /* check range between first/last only */
+#define OTF_REGLIST  0x80 /* register list required, even when single reg. */
+#define OTF_CHKVAL  0x100 /* compare op. value against first/last */
+#define OTF_CHKREG  0x200 /* compare op. register against first/last */
+#define OTF_VXRNG2  0x400 /* Apollo AMMX Rn:Rn+1 vector register range */
+#define OTF_VXRNG4  0x800 /* Apollo AMMX Rn-Rn+3 vector register range */
 
 
 /* additional mnemonic data */
@@ -296,7 +309,7 @@ typedef struct {
 #define B SIZE_BYTE
 #define W SIZE_WORD
 #define L SIZE_LONG
-#define Q SIZE_DOUBLE /* @@@ currently for pmove only */
+#define Q SIZE_DOUBLE
 #define SBW (SIZE_BYTE|SIZE_WORD|SIZE_SINGLE)  /* .s = .b for branches */
 #define SBWL (SIZE_BYTE|SIZE_WORD|SIZE_LONG|SIZE_SINGLE)
 #define BW (SIZE_BYTE|SIZE_WORD)
@@ -340,6 +353,10 @@ struct oper_insert {
 #define IIF_SIGNED   16       /* value is signed (M_val0) */
 #define IIF_3Q       64       /* MOV3Q: -1 is written as 0 (M_val0) */
 #define IIF_ABSVAL  128       /* make sure first expr. is absolute (M_func) */
+/* redefinition for AMMX special registers (M_func) */
+#define IIF_A         8       /* RegBit 4 to A-bit (bit-position 8) */
+#define IIF_B         7       /* RegBit 4 to B-bit (bit-position 7) */
+#define IIF_D         6       /* RegBit 4 to D-bit (bit-position 6) */
 
 
 /* CPU models and their type-flags */
@@ -349,7 +366,7 @@ struct cpu_models {
 };
 
 /* cpu types for availability check - warning: order is important */
-#define CPUMASK  0x000fffff
+#define CPUMASK  0x00ffffff
 #define	m68000   0x00000001
 #define	m68010   0x00000002
 #define	m68020   0x00000004
@@ -370,21 +387,23 @@ struct cpu_models {
 #define mcfusp   0x00010000
 #define mcffpu   0x00020000
 #define mcfmmu   0x00040000
+#define ac68080  0x00100000
 #define mgas     0x20000000 /* a GNU-as specific mnemonic */
 #define malias   0x40000000 /* a bad alias which we should warn about */
 #define mfpu     0x80000000 /* just to check if CP-ID needs to be inserted */
 
 /* handy aliases */
-#define	m68040up  (m68040|m68060)
-#define	m68030up  (m68030|m68040up)
-#define	m68020up  (m68020|m68030up)
-#define	m68010up  (m68010|cpu32|m68020up)
-#define	m68000up  (m68000|m68010up)
 #define m68k      (m68000|m68010|m68020|m68030|m68040|m68060)
+#define apollo    (ac68080)
 #define mcf       (mcfa|mcfaplus|mcfb|mcfc)
 #define mcf_all   (mcfa|mcfaplus|mcfb|mcfc|mcfhwdiv|mcfmac|mcfemac|mcfusp|mcffpu|mcfmmu)
 #define	mfloat    (mfpu|m68881|m68882|m68040|m68060)
 #define	mmmu      (m68851|m68030|m68040|m68060)
+#define	m68040up  (m68040|m68060|apollo)
+#define	m68030up  (m68030|m68040up)
+#define	m68020up  (m68020|m68030up)
+#define	m68010up  (m68010|cpu32|m68020up)
+#define	m68000up  (m68000|m68010up)
 
 
 /* register symbols */
@@ -394,6 +413,7 @@ struct cpu_models {
 #define RSTYPE_Dn   0
 #define RSTYPE_An   1
 #define RSTYPE_FPn  2
+#define RSTYPE_Bn   3  /* Apollo only */
 
 
 /* MID for a.out format */
@@ -401,5 +421,6 @@ extern int m68k_mid;
 #define MID m68k_mid
 
 /* exported functions */
+int m68k_available(int);
+int m68k_data_operand(int);
 int parse_cpu_label(char *,char **);
-#define PARSE_CPU_LABEL(l,s) parse_cpu_label(l,s)

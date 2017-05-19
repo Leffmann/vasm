@@ -4,7 +4,7 @@
 #include "vasm.h"
 #include "output_hunk.h"
 #if defined(OUTHUNK) && (defined(VASM_CPU_M68K) || defined(VASM_CPU_PPC))
-static char *copyright="vasm hunk format output module 2.9 (c) 2002-2017 Frank Wille";
+static char *copyright="vasm hunk format output module 2.9a (c) 2002-2017 Frank Wille";
 int hunk_onlyglobal;
 
 static int databss;
@@ -285,11 +285,13 @@ static struct hunkreloc *convert_reloc(rlist *rl,utaddr pc)
                 return NULL;
               type = HUNK_RELRELOC8;
               break;
+#if defined(VASM_CPU_PPC)
             case 14:
               if (r->bitoffset!=0 || r->mask!=0xfffc)
                 return NULL;
               type = HUNK_RELRELOC16;
               break;
+#endif
             case 16:
               if (r->bitoffset!=0 || r->mask!=-1)
                 return NULL;
@@ -314,7 +316,7 @@ static struct hunkreloc *convert_reloc(rlist *rl,utaddr pc)
         case REL_PPCEABI_SDA2: /* treat as REL_SD for WarpOS/EHF */
 #endif
         case REL_SD:
-          if (kick1 || r->size!=16 || r->bitoffset!=0 || r->mask!=-1)
+          if (r->size!=16 || r->bitoffset!=0 || r->mask!=-1)
             return NULL;
           type = HUNK_DREL16;
           break;
@@ -379,11 +381,13 @@ static struct hunkxref *convert_xref(rlist *rl,utaddr pc)
                 return NULL;
               type = EXT_RELREF8;
               break;
+#if defined(VASM_CPU_PPC)
             case 14:
               if (r->bitoffset!=0 || r->mask!=0xfffc || com)
                 return NULL;
               type = EXT_RELREF16;
               break;
+#endif
             case 16:
               if (r->bitoffset!=0 || r->mask!=-1 || com)
                 return NULL;
@@ -413,7 +417,7 @@ static struct hunkxref *convert_xref(rlist *rl,utaddr pc)
         case REL_PPCEABI_SDA2: /* treat as REL_SD for WarpOS/EHF */
 #endif
         case REL_SD:
-          if (kick1 || r->size!=16 || r->bitoffset!=0 || r->mask!=-1)
+          if (r->size!=16 || r->bitoffset!=0 || r->mask!=-1)
             return NULL;
           type = EXT_DEXT16;
           break;
@@ -840,7 +844,8 @@ static void write_exec(FILE *f,section *sec,symbol *sym)
         if (!kick1)
           reloc_hunk(f,HUNK_ABSRELOC32,1,&reloclist);
         reloc_hunk(f,HUNK_ABSRELOC32,0,&reloclist);
-        reloc_hunk(f,HUNK_RELRELOC32,1,&reloclist);
+        if (!kick1)  /* RELRELOC32 works with short 16-bit offsets only! */
+          reloc_hunk(f,HUNK_RELRELOC32,1,&reloclist);
 
         if (!no_symbols) {
           /* symbol table */

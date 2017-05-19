@@ -1,5 +1,5 @@
 /* syntax.c  syntax module for vasm */
-/* (c) in 2015-2016 by Frank Wille */
+/* (c) in 2015-2017 by Frank Wille */
 
 #include "vasm.h"
 
@@ -12,7 +12,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm madmac syntax module 0.4a (c) 2015-2016 Frank Wille";
+char *syntax_copyright="vasm madmac syntax module 0.4b (c) 2015-2017 Frank Wille";
 hashtable *dirhash;
 char commentchar = ';';
 
@@ -672,7 +672,7 @@ struct {
   "ds.l",handle_spc32,
   "end",handle_end,
   "even",handle_even,
-  "long",handle_even,
+  "long",handle_long,
   "phrase",handle_phrase,
   "dphrase",handle_dphrase,
   "qphrase",handle_qphrase,

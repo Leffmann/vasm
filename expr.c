@@ -1311,13 +1311,17 @@ static int find_abs_base(expr *tree,symbol **base)
         *base=tree->c.sym;
         return 1;
       }
-    }else{
+    }
+#if 0 /* There is no reason to forbid that? Especially not in RORG sections,
+         which are embedded in a normal relocatable, linkable code section. */
+    else{
       if(current_section!=NULL&&(current_section->flags&ABSOLUTE)){
         /* IMPORT in ORG section, will be flagged as BASE_ILLEGAL */
         *base=tree->c.sym;
         return 1;
       }
     }
+#endif
     return 0;
   }
   if(!find_abs_base(tree->left,base))

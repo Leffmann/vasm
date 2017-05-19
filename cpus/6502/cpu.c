@@ -11,7 +11,7 @@ mnemonic mnemonics[] = {
 
 int mnemonic_cnt=sizeof(mnemonics)/sizeof(mnemonics[0]);
 
-char *cpu_copyright="vasm 6502 cpu backend 0.7c (c) 2002,2006,2008-2012,2014-2017 Frank Wille";
+char *cpu_copyright="vasm 6502 cpu backend 0.7d (c) 2002,2006,2008-2012,2014-2017 Frank Wille";
 char *cpuname = "6502";
 int bitsperbyte = 8;
 int bytespertaddr = 2;
@@ -180,7 +180,7 @@ static void optimize_instruction(instruction *ip,section *sec,
         
         if (find_base(op->value,&base,sec,pc) == BASE_OK) {
           if ((op->type==ABS || op->type==ABSX || op->type==ABSY)
-              && (base->sec->flags & ABSOLUTE)
+              && base->sec!=NULL && (base->sec->flags & ABSOLUTE)
               && (val>=0 && val<=0xff) && mnemo->ext.zp_opcode!=0) {
             /* we can use a zero page addressing mode */
             op->type += ZPAGE-ABS;

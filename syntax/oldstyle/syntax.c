@@ -12,7 +12,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm oldstyle syntax module 0.12f (c) 2002-2017 Frank Wille";
+char *syntax_copyright="vasm oldstyle syntax module 0.13a (c) 2002-2017 Frank Wille";
 hashtable *dirhash;
 
 static char textname[]=".text",textattr[]="acrx";
@@ -53,9 +53,7 @@ static struct namelen dendr_dirlist[] = {
   { 5,&endrname[0] }, { 7,&endrname[0] }, { 10,&endrname[0] }, { 0,0 }
 };
 
-static int dotdirs = 0;
-static int autoexport = 0;
-static int parse_end = 0;
+static int dotdirs,autoexport,parse_end,igntrail,nocprefix,nointelsuffix;
 static taddr orgmode = ~0;
 
 
@@ -70,23 +68,44 @@ char *skip(char *s)
 /* check for end of line, issue error, if not */
 void eol(char *s)
 {
-  s = skip(s);
-  if (*s!='\0' && *s!=commentchar)
-    syntax_error(6);
+  if (igntrail) {
+    if (!ISEOL(s) && !isspace((unsigned char)*s))
+      syntax_error(6);
+  }
+  else {
+    s = skip(s);
+    if (!ISEOL(s))
+      syntax_error(6);
+  }
+}
+
+
+char *exp_skip(char *s)
+{
+  if (!igntrail) {
+    s = skip(s);
+    if (*s == commentchar)
+      *s = '\0';  /* rest of operand is ignored */
+  }
+  else if (isspace((unsigned char)*s) || *s==commentchar)
+    *s = '\0';  /* rest of operand is ignored */
+  return s;
 }
 
 
 static char *skip_oper(int instoper,char *s)
 {
+#ifdef VASM_CPU_Z80
+  unsigned char lastuc = 0;
+#endif
   int par_cnt = 0;
   char c = 0;
-#ifdef VASM_CPU_Z80
-  unsigned char lastuc;
-#endif
 
   for (;;) {
+    s = exp_skip(s);
 #ifdef VASM_CPU_Z80
-    lastuc = toupper((unsigned char)c);
+    if (c)
+      lastuc = toupper((unsigned char)*(s-1));
 #endif
     c = *s;
 
@@ -105,14 +124,14 @@ static char *skip_oper(int instoper,char *s)
     else if (c=='\'' || c=='\"')
 #endif
       s = skip_string(s,c,NULL) - 1;
-    else if(!c || c==commentchar)
-      break;
     else if (instoper && OPERSEP_COMMA && c==',' && par_cnt==0)
       break;
     else if (instoper && OPERSEP_BLANK && isspace((unsigned char)c)
              && par_cnt==0)
       break;
     else if (!instoper && c==',' && par_cnt==0)
+      break;
+    else if (c == '\0')
       break;
 
     s++;
@@ -1109,6 +1128,61 @@ static char *parse_label_or_pc(char **start)
 }
 
 
+#ifdef STATEMENT_DELIMITER
+static char *read_next_statement(void)
+{
+  static char *s = NULL;
+  char *line,c;
+
+  if (s == NULL) {
+    char *lab;
+
+    s = line = read_next_line();
+    if (s == NULL)
+      return NULL;  /* no more lines in source */
+
+    /* skip label field and possible statement delimiters therein */
+    if (lab = parse_label_or_pc(&s))
+      myfree(lab);
+  }
+  else {
+    /* make the new statement start with a blank - there is no label field */
+    *s = ' ';
+    line = s++;
+  }
+
+  /* find next statement delimiter in line buffer */
+  for (;;) {
+#ifdef VASM_CPU_Z80
+    unsigned char lastuc;
+#endif
+
+    c = *s;
+#ifdef VASM_CPU_Z80
+    /* For the Z80 ignore ' behind a letter, as it may be a register */
+    lastuc = toupper((unsigned char)*(s-1));
+    if ((c=='\'' && (lastuc<'A' || lastuc>'Z')) || c=='\"') {
+#else
+    if (c=='\'' || c=='\"') {
+#endif
+      s = skip_string(s,c,NULL);
+    }
+    else if (c == STATEMENT_DELIMITER) {
+      *s = '\0';  /* terminate the statement here temporarily */
+      break;
+    }
+    else if (c=='\0' || c==commentchar) {
+      s = NULL;  /* ignore delimiters in rest of line */
+      break;
+    }
+    else
+      s++;
+  }
+  return line;
+}
+#endif
+
+
 void parse(void)
 {
   char *s,*line,*inst,*labname;
@@ -1119,7 +1193,11 @@ void parse(void)
   int ext_cnt,op_cnt,inst_len;
   instruction *ip;
 
+#ifdef STATEMENT_DELIMITER
+  while (line = read_next_statement()) {
+#else
   while (line = read_next_line()) {
+#endif
     if (parse_end)
       continue;
 
@@ -1199,8 +1277,6 @@ void parse(void)
         /* it's just a label */
         label = new_labsym(0,labname);
         add_atom(0,new_label_atom(label));
-        if (*s == ':')	/* optionally terminated by a colon */
-          s = skip(s+1);
       }
 
       if (!is_local_label(labname) && autoexport)
@@ -1263,17 +1339,23 @@ void parse(void)
       else
 #endif
         op_cnt++;
-      s = skip(s);
-      if (OPERSEP_COMMA) {
-        if (*s == ',')
-          s = skip(s+1);
-        else if (!(OPERSEP_BLANK))
+
+      if (igntrail) {
+        if (*s != ',')
           break;
+        s++;
       }
-    }      
-    s = skip(s);
-    if (!ISEOL(s))
-      syntax_error(6);
+      else {
+        s = skip(s);
+        if (OPERSEP_COMMA) {
+          if (*s == ',')
+            s = skip(s+1);
+          else if (!(OPERSEP_BLANK))
+            break;
+        }
+      }
+    }
+    eol(s);
 
     ip = new_inst(inst,inst_len,op_cnt,op,op_len);
 
@@ -1420,28 +1502,28 @@ static int intel_suffix(char *s)
 char *const_prefix(char *s,int *base)
 {
   if (isdigit((unsigned char)*s)) {
-    if (*base = intel_suffix(s))
+    if (!nointelsuffix && (*base = intel_suffix(s)))
       return s;
-    if (*s == '0') {
-      if (s[1]=='x' || s[1]=='X'){
-        *base = 16;
+    if (!nocprefix) {
+      if (*s == '0') {
+        if (s[1]=='x' || s[1]=='X'){
+          *base = 16;
+          return s+2;
+        }
+        if (s[1]=='b' || s[1]=='B'){
+          *base = 2;
+          return s+2;
+        }    
+        *base = 8;
+        return s;
+      } 
+      else if (s[1]=='#' && *s>='2' && *s<='9') {
+        *base = *s & 0xf;
         return s+2;
       }
-      if (s[1]=='b' || s[1]=='B'){
-        *base = 2;
-        return s+2;
-      }    
-      *base = 8;
-      return s;
-    } 
-    else if (s[1]=='#' && *s>='2' && *s<='9') {
-      *base = *s & 0xf;
-      return s+2;
     }
-    else {
-      *base = 10;
-      return s;
-    }
+    *base = 10;
+    return s;
   }
 
   if (*s=='$' && isxdigit((unsigned char)s[1])) {
@@ -1558,6 +1640,18 @@ int syntax_args(char *p)
   }
   else if (!strncmp(p,"-org=",5)) {
     orgmode = atoi(p+5);
+    return 1;
+  }
+  else if (OPERSEP_COMMA && !strcmp(p,"-i")) {
+    igntrail = 1;
+    return 1;
+  }
+  else if (!strcmp(p,"-noc")) {
+    nocprefix = 1;
+    return 1;
+  }
+  else if (!strcmp(p,"-noi")) {
+    nointelsuffix = 1;
     return 1;
   }
   return 0;

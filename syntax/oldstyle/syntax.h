@@ -10,6 +10,10 @@
 /* result of a boolean operation */
 #define BOOLEAN(x) -(x)
 
+/* we have a special skip() function for expressions, called exp_skip() */
+char *exp_skip(char *);
+#define EXPSKIP() s=exp_skip(s)
+
 /* operator separation characters */
 #ifndef OPERSEP_COMMA
 #define OPERSEP_COMMA 1

@@ -3,15 +3,8 @@ microprocessor family.
 
 @section Legal
 
-    This module is copyright in 2002-2015 by Frank Wille.
-
-    This archive may be redistributed without modifications and used
-    for non-commercial purposes.
-
-    Distributing modified versions and commercial usage needs my written
-    consent.
-
-    Certain modules may fall under additional copyrights.
+    This module is written in 2002-2017 by Frank Wille and
+    is covered by the vasm copyright without modifications.
 
 
 @section Additional options for this module
@@ -45,6 +38,9 @@ This module provides the following additional options:
         Generate code for the MC68020-68060 CPU. Be careful with
         instructions like PFLUSHA, which exist on 68030 and 68040/060
         with a different opcode (vasm will use the 040/060 version).
+
+    @item -m68080
+        Generate code for the Apollo Core AC68080 FPGA CPU.
 
     @item -mcpu32
         Generate code for the CPU32 family (MC6833x, MC6834x, etc.).
@@ -342,6 +338,8 @@ a value defined by the following bits:
       ColdFire FPU instructions.
 @item bit 18
       ColdFire MMU instructions.
+@item bit 20
+      Apollo Core AC68080 instruction set.
 @end table
 
 
@@ -391,8 +389,9 @@ directives:
 @item machine <cpu_type>
       Makes the assembler generate code for <cpu_type>, which can be
       the following: @code{68000}, @code{68010}, @code{68020}, @code{68030},
-      @code{68040}, @code{68060}, @code{68851}, @code{68881}, @code{68882},
-      @code{cpu32}. And various ColdFire CPUs, starting with @code{5...}.
+      @code{68040}, @code{68060}, @code{68080},
+      @code{68851}, @code{68881}, @code{68882}, @code{cpu32}.
+      And various ColdFire CPUs, starting with @code{5...}.
 
 @item mc68000
       Generate code for the MC68000 CPU.
@@ -411,6 +410,9 @@ directives:
 
 @item mc68060
       Generate code for the MC68060 CPU.
+
+@item ac68080
+      Generate code for Apollo Core AC68080 FPGA CPU.
 
 @item mcf5...
       Generate code for a ColdFire CPU. The recognized models are listed
@@ -581,6 +583,8 @@ module:
 @item <symbol> equr <Rn>
       Define a new symbol named <symbol> and assign the data or
       address register @code{Rn}, which can be used from now on in operands.
+      When 68080 code generation is enabled, also @code{Bn} base address
+      registers are allowed to be assigned.
       Note that a register symbol must be defined before it can be
       used!
 
@@ -982,5 +986,9 @@ This module has the following error messages:
 @item 2059: not a valid small data register
 @item 2060: small data mode is not enabled
 @item 2061: division by zero
+@item 2062: can't use B%d register as index
+@item 2063: register list on both sides
+@item 2064: "%s" directive was replaced by an instruction with the same name
+@item 2065: Addr.reg. operand at level #0 causes F-line exception
 
 @end itemize

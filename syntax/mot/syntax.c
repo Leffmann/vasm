@@ -12,7 +12,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm motorola syntax module 3.9e (c) 2002-2017 Frank Wille";
+char *syntax_copyright="vasm motorola syntax module 3.10 (c) 2002-2017 Frank Wille";
 hashtable *dirhash;
 char commentchar = ';';
 
@@ -534,8 +534,8 @@ static void do_bind(char *s,int bind)
     }
     sym = new_import(name);
     myfree(name);
-    if ((sym->flags & (EXPORT|WEAK)) != 0 &&
-        (sym->flags & (EXPORT|WEAK)) != bind)
+    if ((sym->flags & (EXPORT|WEAK|NEAR)) != 0 &&
+        (sym->flags & (EXPORT|WEAK|NEAR)) != bind)
       general_error(62,sym->name,get_bind_name(sym)); /* binding already set */
     else
       sym->flags |= bind;
@@ -554,6 +554,12 @@ static void handle_global(char *s)
 static void handle_weak(char *s)
 {
   do_bind(s,WEAK);
+}
+
+
+static void handle_nref(char *s)
+{
+  do_bind(s,EXPORT|NEAR);
 }
 
 
@@ -1444,7 +1450,7 @@ struct {
   "xdef",P|D,handle_global,
   "xref",P|D,handle_global,
   "xref.l",P|D,handle_global,
-  "nref",P,handle_global,
+  "nref",P,handle_nref,
   "entry",0,handle_global,
   "extrn",0,handle_global,
   "global",0,handle_global,
@@ -1834,35 +1840,29 @@ void parse(void)
 
     /* read operands, terminated by comma (unless in parentheses)  */
     op_cnt = 0;
-    if (!ISEOL(s)) {
-      while (op_cnt < MAX_OPERANDS) {
-        op[op_cnt] = s;
-        s = skip_operand(s);
-        op_len[op_cnt] = s - op[op_cnt];
-        op_cnt++;
+    while (!ISEOL(s) && op_cnt<MAX_OPERANDS) {
+      op[op_cnt] = s;
+      s = skip_operand(s);
+      op_len[op_cnt] = s - op[op_cnt];
+      op_cnt++;
 
-        if (allow_spaces) {
-          s = skip(s);
-          if (*s != ',')
-            break;
-          else
-            s = skip(s+1);
-        }
-        else {
-          if (*s != ',') {
-            if (check_comm)
-              comment_check(s);
-            break;
-          }
-          s++;
-        }
-        if (ISEOL(s)) {
-          syntax_error(6);  /* garbage at end of line */
+      if (allow_spaces) {
+        s = skip(s);
+        if (*s != ',')
+          break;
+        else
+          s = skip(s+1);
+      }
+      else {
+        if (*s != ',') {
+          if (check_comm)
+            comment_check(s);
           break;
         }
+        s++;
       }
-      eol(s);
     }
+    eol(s);
 
     ip = new_inst(inst,inst_len,op_cnt,op,op_len);
 
