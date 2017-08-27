@@ -4,7 +4,7 @@
 #include "vasm.h"
 #include "output_hunk.h"
 #if defined(OUTHUNK) && (defined(VASM_CPU_M68K) || defined(VASM_CPU_PPC))
-static char *copyright="vasm hunk format output module 2.9a (c) 2002-2017 Frank Wille";
+static char *copyright="vasm hunk format output module 2.9b (c) 2002-2017 Frank Wille";
 int hunk_onlyglobal;
 
 static int databss;
@@ -439,10 +439,19 @@ static struct hunkxref *convert_xref(rlist *rl,utaddr pc)
 }
 
 
-static void process_relocs(rlist *rl,struct list *reloclist,
+static void process_relocs(atom *a,struct list *reloclist,
                            struct list *xreflist,section *sec,utaddr pc)
 /* convert an atom's rlist into relocations and xrefs */
 {
+  rlist *rl;
+
+  if (a->type == DATA)
+    rl = a->content.db->relocs;
+  else if (a->type == SPACE)
+    rl = a->content.sb->relocs;
+  else
+    return;
+
   if (rl == NULL)
     return;
 
@@ -460,7 +469,7 @@ static void process_relocs(rlist *rl,struct list *reloclist,
         if (xreflist)
           addtail(xreflist,&xref->n);  /* add new external reference */
         else
-          output_error(8,xref->name,sec->name,xref->offset,rl->type);
+          output_atom_error(8,a,xref->name,sec->name,xref->offset,rl->type);
       }
       else
         unsupp_reloc_error(rl);  /* reloc not supported */
@@ -701,20 +710,18 @@ static void write_object(FILE *f,section *sec,symbol *sym)
               add_linedebug(&linedblist,(uint32_t)a->line,npc);
               ++num_linedb;
             }
+
             if (a->type == DATA) {
               fwdata(f,a->content.db->data,a->content.db->size);
-              process_relocs(a->content.db->relocs,
-                             &reloclist,&xreflist,sec,npc);
             }
             else if (a->type == SPACE) {
               fwsblock(f,a->content.sb);
-              process_relocs(a->content.sb->relocs,
-                             &reloclist,&xreflist,sec,npc);
             }
             else if (a->type == LINE && !genlinedebug) {
               add_linedebug(&linedblist,(uint32_t)a->content.srcline,npc);
               ++num_linedb;
             }
+            process_relocs(a,&reloclist,&xreflist,sec,npc);
 
             pc = npc + atom_size(a,sec,npc);
           }
@@ -818,18 +825,18 @@ static void write_exec(FILE *f,section *sec,symbol *sym)
               add_linedebug(&linedblist,(uint32_t)a->line,npc);
               ++num_linedb;
             }
+
             if (a->type == DATA) {
               fwdata(f,a->content.db->data,a->content.db->size);
-              process_relocs(a->content.db->relocs,&reloclist,NULL,sec,npc);
             }
             else if (a->type == SPACE) {
               fwsblock(f,a->content.sb);
-              process_relocs(a->content.sb->relocs,&reloclist,NULL,sec,npc);
             }
             else if (a->type == LINE && !genlinedebug) {
               add_linedebug(&linedblist,(uint32_t)a->content.srcline,npc);
               ++num_linedb;
             }
+            process_relocs(a,&reloclist,NULL,sec,npc);
 
             pc = npc + atom_size(a,sec,npc);
           }
@@ -868,6 +875,15 @@ static void write_exec(FILE *f,section *sec,symbol *sym)
     fw32(f,0,1);
     fw32(f,HUNK_END,1);
   }
+}
+
+
+static void write_output(FILE *f,section *sec,symbol *sym)
+{
+  if (exec_out)
+    write_exec(f,sec,sym);
+  else
+    write_object(f,sec,sym);
 }
 
 
@@ -911,18 +927,8 @@ int init_output_hunk(char **cp,void (**wo)(FILE *,section *,symbol *),
                      int (**oa)(char *))
 {
   *cp = copyright;
-  *wo = write_object;
-  *oa = object_args;
-  return 1;
-}
-
-
-int init_output_hunkexe(char **cp,void (**wo)(FILE *,section *,symbol *),
-                        int (**oa)(char *))
-{
-  *cp = copyright;
-  *wo = write_exec;
-  *oa = exec_args;
+  *wo = write_output;
+  *oa = exec_out ? exec_args : object_args;
   return 1;
 }
 
@@ -930,13 +936,6 @@ int init_output_hunkexe(char **cp,void (**wo)(FILE *,section *,symbol *),
 
 int init_output_hunk(char **cp,void (**wo)(FILE *,section *,symbol *),
                      int (**oa)(char *))
-{
-  return 0;
-}
-
-
-int init_output_hunkexe(char **cp,void (**wo)(FILE *,section *,symbol *),
-                        int (**oa)(char *))
 {
   return 0;
 }

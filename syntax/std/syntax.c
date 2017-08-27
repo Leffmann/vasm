@@ -686,9 +686,35 @@ static void handle_rept(char *s)
   taddr cnt = parse_constexpr(&s);
 
   eol(s);
-  new_repeat((int)cnt,
+  new_repeat((int)cnt,NULL,NULL,
              nodotneeded?rept_dirlist:drept_dirlist,
              nodotneeded?endr_dirlist:dendr_dirlist);
+}
+
+static void do_irp(int type,char *s)
+{
+  char *name;
+
+  if(!(name=parse_identifier(&s))){
+    syntax_error(10);  /* identifier expected */
+    return;
+  }
+  s=skip(s);
+  if (*s==',')
+    s=skip(s+1);
+  new_repeat(type,name,mystrdup(s),
+             nodotneeded?rept_dirlist:drept_dirlist,
+             nodotneeded?endr_dirlist:dendr_dirlist);
+}
+
+static void handle_irp(char *s)
+{
+  do_irp(REPT_IRP,s);
+}
+
+static void handle_irpc(char *s)
+{
+  do_irp(REPT_IRPC,s);
 }
 
 static void handle_endr(char *s)
@@ -996,6 +1022,8 @@ struct {
   "include",handle_include,
   "incbin",handle_incbin,
   "rept",handle_rept,
+  "irp",handle_irp,
+  "irpc",handle_irpc,
   "endr",handle_endr,
   "macro",handle_macro,
   "endm",handle_endm,

@@ -12,7 +12,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm motorola syntax module 3.10 (c) 2002-2017 Frank Wille";
+char *syntax_copyright="vasm motorola syntax module 3.11b (c) 2002-2017 Frank Wille";
 hashtable *dirhash;
 char commentchar = ';';
 
@@ -391,8 +391,13 @@ static void motsection(section *sec,uint32_t mem)
     sec->pad[1] = 0x71;
   }
 #endif
+
   /* set optional memory attributes (e.g. AmigaOS hunk format Chip/Fast) */
   sec->memattr = mem;
+
+  /* a section named __MERGED allows base-relative addressing optimizations */
+  if (!strcmp(sec->name,"__MERGED"))
+    sec->flags |= NEAR_ADDRESSING;
 }
 
 
@@ -982,16 +987,34 @@ static void handle_include(char *s)
 static void handle_incbin(char *s)
 {
   char *name;
+  taddr offs = 0;
+  taddr length = 0;
 
   if (name = parse_name(&s)) {
-    include_binary_file(name,0,0);
+    s = skip(s);
+    if (*s == ',') {
+      if (!devpac_compat && !phxass_compat) {
+        /* We have an offset */
+        s = skip(s + 1);
+        offs = parse_constexpr(&s);
+        s = skip(s);
+        if (*s == ',') {
+          /* We have a length */
+          s = skip(s + 1);
+          length = parse_constexpr(&s);
+        }
+      }
+      else
+        syntax_error(7);
+    }
+    include_binary_file(name,offs,length);
   }
 }
 
 
 static void handle_rept(char *s)
 {
-  new_repeat((int)parse_constexpr(&s),rept_dirlist,endr_dirlist);
+  new_repeat((int)parse_constexpr(&s),NULL,NULL,rept_dirlist,endr_dirlist);
 }
 
 
@@ -1024,7 +1047,7 @@ static void handle_mexit(char *s)
 
 static void handle_rem(char *s)
 {
-  new_repeat(0,NULL,erem_dirlist);
+  new_repeat(0,NULL,NULL,NULL,erem_dirlist);
 }
 
 

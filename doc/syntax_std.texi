@@ -3,7 +3,7 @@ with the extension @code{std}.
 
 @section Legal
 
-    This module is written in 2002-2016 by Volker Barthelmann and
+    This module is written in 2002-2017 by Volker Barthelmann and
     is covered by the vasm copyright without modifications.
 
 @section Additional options for this version
@@ -232,6 +232,18 @@ See @code{.string}.
 
 @item .int <exp1>[,<exp2>...]
       See @code{.long}.
+
+@item .irp <symbol>[,<val>...]
+      Iterates the block between @code{.irp} and @code{.endr} for each
+      @code{<val>}. The current @code{<val>}, which may be embedded in quotes,
+      is assigned to @code{\symbol}. If no value is given, then the block is
+      assembled once, with @code{\symbol} set to an empty string.
+
+@item .irpc <symbol>[,<val>...]
+      Iterates the block between @code{.irp} and @code{.endr} for each
+      character in each @code{<val>}, and assign it to @code{\symbol}.
+      If no value is given, then the block is assembled once, with
+      @code{\symbol} set to an empty string.
 
 @item .lcomm <symbol>,<size>[,<alignment>] 
       Allocate <size> bytes of space in the .bss section and assign

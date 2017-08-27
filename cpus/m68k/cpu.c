@@ -24,7 +24,7 @@ struct cpu_models models[] = {
 int model_cnt = sizeof(models)/sizeof(models[0]);
 
 
-char *cpu_copyright="vasm M68k/CPU32/ColdFire cpu backend 2.2 (c) 2002-2017 Frank Wille";
+char *cpu_copyright="vasm M68k/CPU32/ColdFire cpu backend 2.3a (c) 2002-2017 Frank Wille";
 char *cpuname = "M68k";
 int bitsperbyte = 8;
 int bytespertaddr = 4;
@@ -53,6 +53,7 @@ static unsigned char opt_brajmp = 0;  /* branch to different sect. into jump */
 static unsigned char opt_pc = 1;      /* <label> -> (<label>,PC) */
 static unsigned char opt_bra = 1;     /* B<cc>.L -> B<cc>.W -> B<cc>.B */
 static unsigned char opt_allbra = 0;  /* also optimizes sized branches */
+static unsigned char opt_jbra = 0;    /* JMP/JSR <ext> -> BRA.L/BSR.L (020+) */
 static unsigned char opt_disp = 1;    /* (0,An) -> (An), etc. */
 static unsigned char opt_abs = 1;     /* optimize absolute addreses to 16bit */
 static unsigned char opt_moveq = 1;   /* MOVE.L #x,Dn -> MOVEQ #x,Dn */
@@ -65,6 +66,7 @@ static unsigned char opt_lquick = 1;  /* LEA (x,An),An -> ADDQ/SUBQ #x,An */
 static unsigned char opt_immaddr = 1; /* <op>.L #x,An -> <op>.W #x,An */
 static unsigned char opt_speed = 0;   /* optimize for speed, not for size */
 static unsigned char opt_sc = 0;      /* external JMP/JSR are 16-bit PC-rel. */
+static unsigned char opt_sd = 0;      /* small data opts: abs.L -> (d16,An) */
 static unsigned char no_opt = 0;      /* don't optimize at all! */
 static unsigned char warn_opts = 0;   /* warn on optimizations/translations */
 static unsigned char convert_brackets = 0;  /* convert [ into ( for <020 */
@@ -316,7 +318,7 @@ static void check_apollo_conflicts(void)
 
     if (find_name_nc(dirhash,mnemonics[OC_LOAD].name,&data)) {
       rem_hashentry(dirhash,mnemonics[OC_LOAD].name,nocase);
-      cpu_error(63,mnemonics[OC_LOAD].name);
+      /*cpu_error(63,mnemonics[OC_LOAD].name);*/
     }
     apollo_checks_done = 1;
   }
@@ -367,6 +369,7 @@ void cpu_opts(void *opts)
     case OCMD_OPTDIV: opt_div=arg; break;
     case OCMD_OPTFCONST: opt_fconst=arg; break;
     case OCMD_OPTBRAJMP: opt_brajmp=arg; break;
+    case OCMD_OPTJBRA: opt_jbra=arg; break;
     case OCMD_OPTPC: opt_pc=arg; break;
     case OCMD_OPTBRA: opt_bra=arg; break;
     case OCMD_OPTDISP: opt_disp=arg; break;
@@ -381,6 +384,7 @@ void cpu_opts(void *opts)
     case OCMD_OPTIMMADDR: opt_immaddr=arg; break;
     case OCMD_OPTSPEED: opt_speed=arg; break;
     case OCMD_SMALLCODE: opt_sc=arg; break;
+    case OCMD_SMALLDATA: opt_sd=arg; break;
 
     case OCMD_OPTWARN: warn_opts=arg; break;
     case OCMD_CHKPIC: pic_check=arg; break;
@@ -428,6 +432,7 @@ static void cpu_opts_optinit(section *s)
   add_cpu_opt(s,OCMD_OPTDIV,opt_div);
   add_cpu_opt(s,OCMD_OPTFCONST,opt_fconst);
   add_cpu_opt(s,OCMD_OPTBRAJMP,opt_brajmp);
+  add_cpu_opt(s,OCMD_OPTJBRA,opt_jbra);
   add_cpu_opt(s,OCMD_OPTPC,opt_pc);
   add_cpu_opt(s,OCMD_OPTBRA,opt_bra);
   add_cpu_opt(s,OCMD_OPTDISP,opt_disp);
@@ -442,6 +447,7 @@ static void cpu_opts_optinit(section *s)
   add_cpu_opt(s,OCMD_OPTIMMADDR,opt_immaddr);
   add_cpu_opt(s,OCMD_OPTSPEED,opt_speed);
   add_cpu_opt(s,OCMD_SMALLCODE,opt_sc);
+  add_cpu_opt(s,OCMD_SMALLDATA,opt_sd);
 
   if (phxass_compat)
     set_optc_symbol();
@@ -465,13 +471,15 @@ void cpu_opts_init(section *s)
 void print_cpu_opts(FILE *f,void *opts)
 {
   static const char *ocmds[] = {
-    "opt generic","opt movem","opt pea","opt clr","opt st","opt lsl","opt mul",
-    "opt div","opt float const","opt branch to jump","opt pc-relative",
-    "opt branch","opt displacement","opt absolute","opt moveq","opt quick",
+    "opt generic","opt movem","opt pea","opt clr","opt st","opt lsl",
+    "opt mul","opt div","opt float const","opt branch to jump",
+    "opt jump to longbranch","opt pc-relative","opt branch",
+    "opt displacement","opt absolute","opt moveq","opt quick",
     "opt branch to nop","opt base disp","opt outer disp",
     "opt adda/subq to lea","opt lea to addq/subq","opt immediate areg",
-    "opt for speed","opt small code","warn about optimizations",
-    "PIC check","type and range checks","hide all warnings"
+    "opt for speed","opt small code","opt small data",
+    "warn about optimizations","PIC check","type and range checks",
+    "hide all warnings"
   };
   static const char *cpus[32] = {
     "m68000","m68010","m68020","m68030","m68040","m68060",
@@ -1533,6 +1541,8 @@ int parse_operand(char *p,int len,operand *op,int required)
           /* "([val" without register means base reg is suppressed */
           reg = REGZero | REGAn | 0;
         }
+        else if (reg>0 && REGisZero(reg))
+          op->flags |= FL_ZBase;  /* ZAn was explicitely specified */
 
         if (reg >= 0) {  /* "(Rn" or "(d,Rn" or "([Rn" or "([bd,Rn" */
           int clbrk = 0;
@@ -1596,6 +1606,7 @@ int parse_operand(char *p,int len,operand *op,int required)
             if (!(reqflags & FL_DoubleReg)) {
               idx = reg;
               reg = REGZero | REGAn | 0;
+              op->flags &= ~FL_ZBase;
             }
           }
 
@@ -1671,6 +1682,8 @@ int parse_operand(char *p,int len,operand *op,int required)
               cpu_error(5);  /* bad extension */
               idx &= ~(EXT_MASK<<REGext_Shift);
             }
+            if (REGisZero(idx))
+              op->flags |= FL_ZIndex;  /* ZRn was explicitely specified */
           }
 
           /* set default displacement sizes */
@@ -2020,8 +2033,8 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
   taddr pcdisp;  /* calculated pc displacement = (label - current_pc) */
   int pcdisp16;  /* true, when pcdisp fits into 16 bits */
   int undef;     /* true, when base-symbol is still undefined */
-  int bopt;      /* true, when base-displacement optimization allowed */
-  int oopt;      /* true, when outer-displacement optimization allowed */
+  int bdopt;     /* true, when base-displacement optimization allowed */
+  int odopt;     /* true, when outer-displacement optimization allowed */
 
   if (!(op->flags & FL_DoNotEval))
     eval_oper(op,sec,pc,final);
@@ -2031,15 +2044,15 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
 
   /* optimize and fix addressing modes */
 
-  bopt = !(op->flags & FL_NoOptBase);
-  oopt = !(op->flags & FL_NoOptOuter);
+  bdopt = !(op->flags & FL_NoOptBase);
+  odopt = !(op->flags & FL_NoOptOuter);
   size16[0] = op->extval[0]>=-0x8000 && op->extval[0]<=0x7fff;
   size16[1] = op->extval[1]>=-0x8000 && op->extval[1]<=0x7fff;
   pcdisp = op->extval[0] - cpc;
   pcdisp16 = (op->base[0]==NULL) ? 0 : (pcdisp>=-0x8000 && pcdisp<=0x7fff);
   undef = (op->base[0]==NULL) ? 0 : EXTREF(op->base[0]);
 
-  if (bopt) {  /* base displacement optimizations allowed */
+  if (bdopt) {  /* base displacement optimizations allowed */
 
     if (op->mode==MODE_An16Disp) {
       if (opt_disp && !op->base[0] && op->extval[0]==0 &&
@@ -2135,8 +2148,11 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
         if (final && warn_opts>1)
           cpu_error(49,"abs.l->abs.w");
       }
-      else if (opt_gen && sdreg>=0 && op->base[0]!=NULL &&
-               (op->base[0]->flags&NEAR) && (ot->modes & (1<<AM_An16Disp))) {
+      else if (sdreg>=0 && op->base[0]!=NULL &&
+               (ot->modes & (1<<AM_An16Disp)) &&
+               ((opt_gen && (op->base[0]->flags&NEAR)) ||
+                (opt_sd && op->base[0]->type==LABSYM && op->base[0]->sec!=NULL
+                 && (op->base[0]->sec->flags&NEAR_ADDRESSING)))) {
         /* label.l --> label(An) base relative near addressing */
         op->mode = MODE_An16Disp;
         op->reg = sdreg;
@@ -2159,14 +2175,14 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
 
     if (FW_getIndSize(op->format)==FW_None) {  /* no memory indirection */
       if (FW_getBDSize(op->format) > FW_Null) {
-        if (opt_bdisp && bopt && !op->base[0] && op->extval[0]==0) {
+        if (opt_bdisp && bdopt && !op->base[0] && op->extval[0]==0) {
           /* (0,An,...) --> (An,...) */
           op->format &= ~FW_BDSize(FW_SizeMask);
           op->format |= FW_BDSize(FW_Null);
           if (final && warn_opts>1)
             cpu_error(49,"(0,An,...)->(An,...)");
         }
-        else if (bopt && (op->base[0] || (!op->base[0] && !size16[0])) &&
+        else if (bdopt && (op->base[0] || (!op->base[0] && !size16[0])) &&
                  FW_getBDSize(op->format)==FW_Word) {
           /* (bd16,An,...) --> (bd32,An,...) */
           op->format &= ~FW_BDSize(FW_SizeMask);
@@ -2174,10 +2190,11 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
           if (final && warn_opts>1)
             cpu_error(50,"(bd16,An,...)->(bd32,An,...)");
         }
-        else if (opt_bdisp && bopt && !op->base[0] && size16[0] &&
+        else if (opt_bdisp && bdopt && !op->base[0] && size16[0] &&
                  FW_getBDSize(op->format)==FW_Long) {
           if ((op->format & FW_IndexSuppress) &&
-              (ot->modes & (1<<AM_An16Disp))) {
+              (ot->modes & (1<<AM_An16Disp)) &&
+              !(op->flags & FL_ZIndex)) {
             /* (bd32,An,ZRn) --> (d16,An) */
             op->mode = MODE_An16Disp;
             op->format = 0;
@@ -2196,7 +2213,9 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
       }
       else if (opt_gen && !op->base[0] &&
                (op->format & FW_IndexSuppress) &&
-               (ot->modes & (1<<AM_AnIndir))) {
+               !(op->format & FW_BaseSuppress) &&
+               (ot->modes & (1<<AM_AnIndir)) &&
+               !(op->flags & FL_ZIndex)) {
         /* (An,ZRn) --> (An) */
         op->mode = MODE_AnIndir;
         op->format = 0;
@@ -2207,7 +2226,7 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
     }
 
     else {  /* memory indirection */
-      if (opt_bdisp && bopt && !op->base[0] &&
+      if (opt_bdisp && bdopt && !op->base[0] &&
           FW_getBDSize(op->format)>FW_Null && op->extval[0]==0) {
         /* ([0,An,...],...) --> ([An,...],...) */
         op->format &= ~FW_BDSize(FW_SizeMask);
@@ -2215,7 +2234,7 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
         if (final && warn_opts>1)
            cpu_error(49,"([0,An,...],...)->([An,...],...)");
       }
-      else if (bopt && (op->base[0] || (!op->base[0] && !size16[0])) &&
+      else if (bdopt && (op->base[0] || (!op->base[0] && !size16[0])) &&
                FW_getBDSize(op->format)==FW_Word) {
         /* ([bd16,An,...],...) --> ([bd32,An,...],...) */
         op->format &= ~FW_BDSize(FW_SizeMask);
@@ -2223,7 +2242,7 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
         if (final && warn_opts>1)
            cpu_error(50,"([bd16,An,...],...)->([bd32,An,...],...)");
       }
-      else if (opt_bdisp && bopt && !op->base[0] && size16[0] &&
+      else if (opt_bdisp && bdopt && !op->base[0] && size16[0] &&
                FW_getBDSize(op->format)==FW_Long) {
         /* ([bd32,An,...],...) --> ([bd16,An,...],...) */
         op->format &= ~FW_BDSize(FW_SizeMask);
@@ -2232,14 +2251,14 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
            cpu_error(49,"([bd32,An,...],...)->([bd16,An,...],...)");
       }
       if (FW_getIndSize(op->format) >= FW_Word) {  /* outer displacement */
-        if (opt_odisp && oopt && !op->base[1] && op->extval[1]==0) {
+        if (opt_odisp && odopt && !op->base[1] && op->extval[1]==0) {
           /* ([...],0) --> ([...]) */
           op->format &= ~FW_IndSize(FW_SizeMask);
           op->format |= FW_IndSize(FW_Null);
           if (final && warn_opts>1)
              cpu_error(49,"([...],0)->([...])");
         }
-        else if (oopt && (op->base[1] || (!op->base[1] && !size16[1])) &&
+        else if (odopt && (op->base[1] || (!op->base[1] && !size16[1])) &&
                  FW_getIndSize(op->format)==FW_Word) {
           /* ([...],od16) --> ([...],od32) */
           op->format &= ~FW_IndSize(FW_SizeMask);
@@ -2247,7 +2266,7 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
           if (final && warn_opts>1)
              cpu_error(50,"([...],od16)->([...],od32)");
         }
-        else if (opt_odisp && oopt && !op->base[1] && size16[1] &&
+        else if (opt_odisp && odopt && !op->base[1] && size16[1] &&
                  FW_getIndSize(op->format)==FW_Long) {
           /* ([...],od32) --> ([...],od16) */
           op->format &= ~FW_IndSize(FW_SizeMask);
@@ -2264,14 +2283,14 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
 
     if (FW_getIndSize(op->format)==FW_None) {  /* no memory indirection */
       if (FW_getBDSize(op->format) > FW_Null) {
-        if (opt_bdisp && bopt && !op->base[0] && op->extval[0]==0) {
+        if (opt_bdisp && bdopt && !op->base[0] && op->extval[0]==0) {
           /* (0,PC,...) --> (PC,...) */
           op->format &= ~FW_BDSize(FW_SizeMask);
           op->format |= FW_BDSize(FW_Null);
           if (final && warn_opts>1)
              cpu_error(49,"(0,PC,...)->(PC,...)");
         }
-        else if (bopt && ((op->base[0] && !pcdisp16 && !undef) ||
+        else if (bdopt && ((op->base[0] && !pcdisp16 && !undef) ||
                   (!op->base[0] && !size16[0]))
                  && FW_getBDSize(op->format)==FW_Word) {
           /* (bd16,PC,...) --> (bd32,PC,...) */
@@ -2280,12 +2299,13 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
           if (final && warn_opts>1)
              cpu_error(50,"(bd16,PC,...)->(bd32,PC,...)");
         }
-        else if (opt_bdisp && bopt &&
+        else if (opt_bdisp && bdopt &&
                  ((op->base[0] && pcdisp16 && !undef) ||
                   (!op->base[0] && size16[0]))
                  && FW_getBDSize(op->format)==FW_Long) {
           if ((op->format & FW_IndexSuppress) &&
-              (ot->modes & (1<<AM_PC16Disp))) {
+              (ot->modes & (1<<AM_PC16Disp)) &&
+              !(op->flags & FL_ZIndex)) {
             /* (bd32,PC,ZRn) --> (d16,PC) */
             op->reg = REG_PC16Disp;
             op->format = 0;
@@ -2305,7 +2325,7 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
     }
 
     else {  /* memory indirection */
-      if (opt_bdisp && !op->base[0] && bopt &&
+      if (opt_bdisp && !op->base[0] && bdopt &&
           FW_getBDSize(op->format)>FW_Null && op->extval[0]==0) {
         /* ([0,PC,...],...) --> ([PC,...],...) */
         op->format &= ~FW_BDSize(FW_SizeMask);
@@ -2313,7 +2333,7 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
         if (final && warn_opts>1)
             cpu_error(49,"([0,PC,...],...)->([PC,...],...)");
       }
-      else if (bopt && ((op->base[0] && !pcdisp16 && !undef) ||
+      else if (bdopt && ((op->base[0] && !pcdisp16 && !undef) ||
                (!op->base[0] && !size16[0])) &&
                FW_getBDSize(op->format)==FW_Word) {
         /* ([bd16,PC,...],...) --> ([bd32,PC,...],...) */
@@ -2322,7 +2342,7 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
         if (final && warn_opts>1)
             cpu_error(50,"([bd16,PC,...],...)->([bd32,PC,...],...)");
       }
-      else if (opt_bdisp && bopt &&
+      else if (opt_bdisp && bdopt &&
                ((op->base[0] && pcdisp16 && !undef) ||
                 (!op->base[0] && size16[0])) &&
                FW_getBDSize(op->format)==FW_Long) {
@@ -2333,14 +2353,14 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
             cpu_error(49,"([bd32,PC,...],...)->([bd16,PC,...],...)");
       }
       if (FW_getIndSize(op->format) >= FW_Word) {  /* outer displacement */
-        if (opt_odisp && !op->base[1] && oopt && op->extval[1]==0) {
+        if (opt_odisp && !op->base[1] && odopt && op->extval[1]==0) {
           /* ([...],0) --> ([...]) */
           op->format &= ~FW_IndSize(FW_SizeMask);
           op->format |= FW_IndSize(FW_Null);
           if (final && warn_opts>1)
               cpu_error(49,"([...],0)->([...])");
         }
-        else if (oopt && (op->base[1] || (!op->base[1] && !size16[1])) &&
+        else if (odopt && (op->base[1] || (!op->base[1] && !size16[1])) &&
                  FW_getIndSize(op->format)==FW_Word) {
           /* ([...],od16) --> ([...],od32) */
           op->format &= ~FW_IndSize(FW_SizeMask);
@@ -2348,7 +2368,7 @@ static void optimize_oper(operand *op,struct optype *ot,section *sec,
           if (final && warn_opts>1)
               cpu_error(50,"([...],od16)->([...],od32)");
         }
-        else if (opt_odisp && oopt && !op->base[1] && size16[1] &&
+        else if (opt_odisp && odopt && !op->base[1] && size16[1] &&
                  FW_getIndSize(op->format)==FW_Long) {
           /* ([...],od32) --> ([...],od16) */
           op->format &= ~FW_IndSize(FW_SizeMask);
@@ -2760,7 +2780,7 @@ dontswap:
 
     else if (val<=-2 && val>=-0x100 && muls && cntones(-val,9)==1) {
       val = bfffo(-val,1,9);
-      if (opt_speed && ext=='w' && opt_speed) {
+      if (opt_speed && ext=='w') {
         /* muls.w #-x,Dn -> ext.l Dn + asl.l #x,Dn + neg.l Dn */
         instruction *ip2 = copy_instruction(ip);
 
@@ -3517,13 +3537,22 @@ dontswap:
           cpu_error(51,"jmp/jsr -> bra/bsr");
       }
     }
-    else if (opt_sc && !(ip->op[0]->flags & FL_NoOpt) &&
-        ip->op[0]->mode==MODE_Extended && ip->op[0]->reg==REG_AbsLong &&
-        EXTREF(ip->op[0]->base[0])) {
-      /* JMP/JSR extlabel --> JMP/JSR extlabel(PC) */
-      ip->op[0]->reg = REG_PC16Disp;
-      if (final && warn_opts>1)
-        cpu_error(51,"jmp/jsr -> jmp/jsr (PC)");
+    else if (!(ip->op[0]->flags & FL_NoOpt) &&
+             ip->op[0]->mode==MODE_Extended && ip->op[0]->reg==REG_AbsLong &&
+             EXTREF(ip->op[0]->base[0])) {
+      if (opt_sc) {
+        /* JMP/JSR extlabel --> JMP/JSR extlabel(PC) */
+        ip->op[0]->reg = REG_PC16Disp;
+        if (final && warn_opts>1)
+          cpu_error(51,"jmp/jsr -> jmp/jsr (PC)");
+      }
+      else if (opt_jbra && (cpu_type & (m68020up|cpu32))) {
+        /* JMP/JSR extlabel -> BRA.L/BSR.L extlabel (68020+, CPU32) */
+        ip->qualifiers[0] = l_str;
+        ip->code = (oc & 0x40) ? OC_BRA : OC_BSR;
+        if (final && warn_opts>1)
+          cpu_error(51,"jmp/jsr -> bra.l/bsr.l");
+      }
     }
   }
 
@@ -4963,7 +4992,7 @@ static uint32_t get_cpu_type(char **str)
 static void clear_all_opts(void)
 {
   opt_movem = opt_pea = opt_clr = opt_st = opt_lsl = opt_mul = opt_div = 0;
-  opt_fconst = opt_brajmp = opt_pc = opt_bra = opt_allbra = 0;
+  opt_fconst = opt_brajmp = opt_pc = opt_bra = opt_allbra = opt_jbra = 0;
   opt_disp = opt_abs = opt_moveq = opt_quick = opt_branop = 0;
   opt_bdisp = opt_odisp = opt_lea = opt_lquick = opt_immaddr = 0;
   opt_gen = opt_speed = 0;
@@ -4977,7 +5006,7 @@ int cpu_args(char *arg)
 
   if (!strcmp(p,"-phxass")) {
     phxass_compat = 1;
-    opt_allbra = opt_brajmp = 1;
+    opt_allbra = opt_brajmp = opt_sd = 1;
     opt_fconst = 0;
     ign_unambig_ext = 1;
     return 0;  /* leave option visible for syntax modules */
@@ -5030,11 +5059,10 @@ nofpu:
     gas = 1;
     commentchar = '|';
     set_cpu_type(m68020,0);  /* gas compatibility defaults to 68020/68881 */
+    opt_jbra = !no_opt;
   }
   else if (!strcmp(p,"-sgs"))
     sgs = 1;
-  else if (!strcmp(p,"-sc"))
-    opt_sc = 1;
   else if (!strcmp(p,"-rangewarnings"))
     modify_cpu_err(WARNING,25,29,32,36,0);
   else if (!strcmp(p,"-conv-brackets"))
@@ -5049,6 +5077,10 @@ nofpu:
     warn_opts = 1;
   else if (!strcmp(p,"-showopt"))
     warn_opts = 2;
+  else if (!strcmp(p,"-sc"))
+    opt_sc = !no_opt;
+  else if (!strcmp(p,"-sd"))
+    opt_sd = !no_opt;
   else if (!strcmp(p,"-opt-movem"))
     opt_movem = !no_opt;
   else if (!strcmp(p,"-opt-pea"))
@@ -5069,6 +5101,8 @@ nofpu:
     opt_brajmp = !no_opt;
   else if (!strcmp(p,"-opt-allbra"))
     opt_allbra = !no_opt;
+  else if (!strcmp(p,"-opt-jbra"))
+    opt_jbra = !no_opt;
   else if (!strcmp(p,"-opt-speed"))
     opt_speed = !no_opt;
   else
@@ -5287,12 +5321,27 @@ static char *devpac_option(char *s)
     ext = validchar(s+1);
     if (isdigit((unsigned char)ext))
       num = atoi(s+1);
+    else
+      num = -1;
 
     do
       c = validchar(++s);
-    while (c!=0 && c!='+' && c!='-');
+    while (c!=0 && c!=',' && c!='+' && c!='-');
 
-    if (c) {
+    if (c==0 || c==',') {
+      switch (opt) {
+        case 'l':  /* Ln : Atari only */
+          if (num >= 0)
+            exec_out = num == 0;
+          break;
+        default:
+          cpu_error(31,toupper((unsigned char)opt),c);  /* unkn. opt ignored */
+          break;
+      }
+      return s;
+    }
+
+    else if (c != 0) {
       flag = c=='+';
       if (ext == c)
         ext = 0;
@@ -5307,19 +5356,8 @@ static char *devpac_option(char *s)
         case 'd':
           no_symbols = !flag;
           break;
-        case 'x':
-          if (flag)
-            no_symbols = 0;
-#ifdef OUTTOS
-          tos_hisoft_dri = flag;  /* extended symbol names for Atari */
-#endif
-#ifdef OUTHUNK
-          hunk_onlyglobal = flag; /* only xdef-symbols in objects for Amiga */
-#endif
-          break;
-        case 'l':
-          if (!flag)
-            goto devpac_err;  /* cannot generate executable */
+        case 'l':  /* L+/- : Amiga only */
+          exec_out = !flag;
           break;
         case 'm':
           /* macro expansion in listing file */
@@ -5331,25 +5369,34 @@ static char *devpac_option(char *s)
           else {
             switch (tolower((unsigned char)ext)) {
               case '\0':
-                add_cpu_opt(0,OCMD_NOOPT,!flag);
-                if (!devpac_compat) {
-                  /* toggle safe vasm-specific optimizations */
-                  add_cpu_opt(0,OCMD_OPTGEN,flag);
-                  add_cpu_opt(0,OCMD_OPTFCONST,flag);
-                  add_cpu_opt(0,OCMD_OPTBRAJMP,flag);
+                if (!flag) {
+                  /* clear all optimization flags, set no_opt */
+                  clear_all_opts();
+                  add_cpu_opt(0,OCMD_NOOPT,1);
                 }
-                add_cpu_opt(0,OCMD_OPTPC,flag);
-                add_cpu_opt(0,OCMD_OPTBRA,flag);
-                add_cpu_opt(0,OCMD_OPTDISP,flag);
-                add_cpu_opt(0,OCMD_OPTABS,flag);
-                add_cpu_opt(0,OCMD_OPTMOVEQ,flag);
-                add_cpu_opt(0,OCMD_OPTQUICK,flag);
-                add_cpu_opt(0,OCMD_OPTBRANOP,flag);
-                add_cpu_opt(0,OCMD_OPTBDISP,flag);
-                add_cpu_opt(0,OCMD_OPTODISP,flag);
-                add_cpu_opt(0,OCMD_OPTLEA,flag);
-                add_cpu_opt(0,OCMD_OPTLQUICK,flag);
-                add_cpu_opt(0,OCMD_OPTIMMADDR,flag);
+                else {
+                  /* enable all safe optimizations, as in vasm-default */
+                  add_cpu_opt(0,OCMD_OPTBRA,1);
+                  add_cpu_opt(0,OCMD_OPTDISP,1);
+                  add_cpu_opt(0,OCMD_OPTABS,1);
+                  add_cpu_opt(0,OCMD_OPTMOVEQ,1);
+                  add_cpu_opt(0,OCMD_OPTQUICK,1);
+                  add_cpu_opt(0,OCMD_OPTBRANOP,1);
+                  add_cpu_opt(0,OCMD_OPTBDISP,1);
+                  add_cpu_opt(0,OCMD_OPTODISP,1);
+                  add_cpu_opt(0,OCMD_OPTLEA,1);
+                  add_cpu_opt(0,OCMD_OPTLQUICK,1);
+                  add_cpu_opt(0,OCMD_OPTIMMADDR,1);
+                  if (!devpac_compat) {
+                    /* enable safe vasm-specific optimizations */
+                    add_cpu_opt(0,OCMD_OPTGEN,1);
+                    add_cpu_opt(0,OCMD_OPTPC,1);
+                    add_cpu_opt(0,OCMD_OPTFCONST,1);
+                  }
+                }
+                break;
+              case 'b': /* vasm-specific */
+                add_cpu_opt(0,OCMD_OPTJBRA,flag);
                 break;
               case 'c': /* vasm-specific */
                 add_cpu_opt(0,OCMD_OPTCLR,flag);
@@ -5371,6 +5418,9 @@ static char *devpac_option(char *s)
                 break;
               case 'm': /* vasm-specific */
                 add_cpu_opt(0,OCMD_OPTMOVEM,flag);
+                break;
+              case 'n': /* vasm-specific */
+                add_cpu_opt(0,OCMD_SMALLDATA,flag);
                 break;
               case 'p': /* vasm-specific */
                 add_cpu_opt(0,OCMD_OPTPEA,flag);
@@ -5405,6 +5455,16 @@ static char *devpac_option(char *s)
         case 'w':
           no_warn = !flag;  /* must also be recognized during parsing */
           add_cpu_opt(0,OCMD_NOWARN,!flag);
+          break;
+        case 'x':
+          if (flag)
+            no_symbols = 0;
+#ifdef OUTTOS
+          tos_hisoft_dri = flag;  /* extended symbol names for Atari */
+#endif
+#ifdef OUTHUNK
+          hunk_onlyglobal = flag; /* only xdef-symbols in objects for Amiga */
+#endif
           break;
         default:
           cpu_error(31,toupper((unsigned char)opt),c);  /* unkn. opt ignored */

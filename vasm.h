@@ -1,5 +1,5 @@
 /* vasm.h  main header file for vasm */
-/* (c) in 2002-2016 by Volker Barthelmann */
+/* (c) in 2002-2017 by Volker Barthelmann */
 
 #include <stdlib.h>
 #include <stddef.h>
@@ -77,11 +77,13 @@ struct source {
   size_t size;
   macro *macro;
   unsigned long repeat;
+  char *irpname;
+  struct macarg *irpvals;
   int cond_level;
   struct macarg *argnames;
   int num_params;
-  char *param[MAXMACPARAMS];
-  int param_len[MAXMACPARAMS];
+  char *param[MAXMACPARAMS+1];
+  int param_len[MAXMACPARAMS+1];
 #if MAX_QUALIFIERS > 0
   int num_quals;
   char *qual[MAX_QUALIFIERS];
@@ -108,6 +110,7 @@ struct source {
 #define ABSOLUTE 16
 #define PREVABS 32          /* saved ABSOLUTE-flag during RORG-block */
 #define IN_RORG 64
+#define NEAR_ADDRESSING 128
 #define SECRSRVD (1L<<24)   /* bits 24..31 are reserved for output modules */
 
 /* section description */
@@ -277,6 +280,5 @@ int init_output_bin(char **,void (**)(FILE *,section *,symbol *),int (**)(char *
 int init_output_srec(char **,void (**)(FILE *,section *,symbol *),int (**)(char *));
 int init_output_vobj(char **,void (**)(FILE *,section *,symbol *),int (**)(char *));
 int init_output_hunk(char **,void (**)(FILE *,section *,symbol *),int (**)(char *));
-int init_output_hunkexe(char **,void (**)(FILE *,section *,symbol *),int (**)(char *));
 int init_output_aout(char **,void (**)(FILE *,section *,symbol *),int (**)(char *));
 int init_output_tos(char **,void (**)(FILE *,section *,symbol *),int (**)(char *));

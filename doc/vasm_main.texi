@@ -340,6 +340,7 @@ Has to be provided completely by the syntax module.
     @item Mauricio Mu@~noz Lucero
     @item J@"org van de Loo
     @item Robert Leffmann
+    @item Andreas Larsson
     @item Miro Kropacek
     @item Mikael Kalms
     @item Matthew Hey

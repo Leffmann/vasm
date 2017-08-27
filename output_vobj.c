@@ -1,10 +1,10 @@
 /* output_vasm.c vobj format output driver for vasm */
-/* (c) in 2002-2016 by Volker Barthelmann */
+/* (c) in 2002-2017 by Volker Barthelmann */
 
 #include "vasm.h"
 
 #ifdef OUTVOBJ
-static char *copyright="vasm vobj output module 0.8 (c) 2002-2016 Volker Barthelmann";
+static char *copyright="vasm vobj output module 0.8a (c) 2002-2017 Volker Barthelmann";
 
 /*
   Format (WILL CHANGE!):
@@ -94,13 +94,11 @@ static int sym_valid(symbol *symp)
 /* To ignore tmp-symbols is dangerous, as some relocations depend on
    them (e.g. when using the * (current-pc) symbol, a *tmpNNNNNN* symbol
    will be generated). */
-#if 0
-  if(*symp->name==' ')
+  if(*symp->name==' ' && strncmp(symp->name," *tmp",5)!=0)
     return 0;  /* ignore internal/temporary symbols */
-#endif
-  if (symp->flags & VASMINTERN) {
+  if(symp->flags & VASMINTERN) {
     /* do not ignore current-pc symbol, which is needed for some relocs */
-    if (strcmp(symp->name," *current pc dummy*") != 0)
+    if(strcmp(symp->name," *current pc dummy*") != 0)
       return 0;  /* ignore vasm-internal symbols */
   }
   return 1;
@@ -110,7 +108,7 @@ static int count_relocs(rlist *rl)
 {
   int nrelocs;
 
-  for (nrelocs=0; rl; rl=rl->next) {
+  for(nrelocs=0; rl; rl=rl->next) {
     if(rl->type>=FIRST_STANDARD_RELOC && rl->type<=LAST_STANDARD_RELOC)
       nrelocs++;
     else

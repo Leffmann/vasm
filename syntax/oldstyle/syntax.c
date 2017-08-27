@@ -12,7 +12,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm oldstyle syntax module 0.13a (c) 2002-2017 Frank Wille";
+char *syntax_copyright="vasm oldstyle syntax module 0.13b (c) 2002-2017 Frank Wille";
 hashtable *dirhash;
 
 static char textname[]=".text",textattr[]="acrx";
@@ -718,7 +718,7 @@ static void handle_rept(char *s)
   taddr cnt = parse_constexpr(&s);
 
   eol(s);
-  new_repeat((int)cnt,
+  new_repeat((int)cnt,NULL,NULL,
              dotdirs?drept_dirlist:rept_dirlist,
              dotdirs?dendr_dirlist:endr_dirlist);
 }

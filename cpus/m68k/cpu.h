@@ -45,39 +45,43 @@ typedef struct {
   int arg;
 } optcmd;
 /* optcmd commands - warning: print_cpu_opts() depends on the order! */
-#define OCMD_NOP         0
-#define OCMD_CPU         1
-#define OCMD_FPU         2
-#define OCMD_SDREG       3
-#define OCMD_NOOPT       4
-#define OCMD_OPTGEN      5
-#define OCMD_OPTMOVEM    6
-#define OCMD_OPTPEA      7
-#define OCMD_OPTCLR      8
-#define OCMD_OPTST       9
-#define OCMD_OPTLSL     10
-#define OCMD_OPTMUL     11
-#define OCMD_OPTDIV     12
-#define OCMD_OPTFCONST  13
-#define OCMD_OPTBRAJMP  14
-#define OCMD_OPTPC      15
-#define OCMD_OPTBRA     16
-#define OCMD_OPTDISP    17
-#define OCMD_OPTABS     18
-#define OCMD_OPTMOVEQ   19
-#define OCMD_OPTQUICK   20
-#define OCMD_OPTBRANOP  21
-#define OCMD_OPTBDISP   22
-#define OCMD_OPTODISP   23
-#define OCMD_OPTLEA     24
-#define OCMD_OPTLQUICK  25
-#define OCMD_OPTIMMADDR 26
-#define OCMD_OPTSPEED   27
-#define OCMD_SMALLCODE  28
-#define OCMD_OPTWARN    29
-#define OCMD_CHKPIC     30
-#define OCMD_CHKTYPE    31
-#define OCMD_NOWARN     32
+enum {
+  OCMD_NOP,
+  OCMD_CPU,
+  OCMD_FPU,
+  OCMD_SDREG,
+  OCMD_NOOPT,
+  OCMD_OPTGEN,
+  OCMD_OPTMOVEM,
+  OCMD_OPTPEA,
+  OCMD_OPTCLR,
+  OCMD_OPTST,
+  OCMD_OPTLSL,
+  OCMD_OPTMUL,
+  OCMD_OPTDIV,
+  OCMD_OPTFCONST,
+  OCMD_OPTBRAJMP,
+  OCMD_OPTJBRA,
+  OCMD_OPTPC,
+  OCMD_OPTBRA,
+  OCMD_OPTDISP,
+  OCMD_OPTABS,
+  OCMD_OPTMOVEQ,
+  OCMD_OPTQUICK,
+  OCMD_OPTBRANOP,
+  OCMD_OPTBDISP,
+  OCMD_OPTODISP,
+  OCMD_OPTLEA,
+  OCMD_OPTLQUICK,
+  OCMD_OPTIMMADDR,
+  OCMD_OPTSPEED,
+  OCMD_SMALLCODE,
+  OCMD_SMALLDATA,
+  OCMD_OPTWARN,
+  OCMD_CHKPIC,
+  OCMD_CHKTYPE,
+  OCMD_NOWARN
+};
 
 /* minimum instruction alignment */
 #define INST_ALIGN 2
@@ -123,17 +127,19 @@ typedef struct {
 #define FL_NoOptBase    0x100   /* never optimize base displacement */
 #define FL_NoOptOuter   0x200   /* never optimize outer displacement */
 #define FL_NoOpt        0x300   /* never optimize this whole operand */
-#define FL_BaseReg      0x400   /* BASEREG expression in exp.value[0] */
-#define FL_BnReg       0x1000   /* Apollo: Bn register instead of An */
-#define FL_MAC         0x2000   /* ColdFire MAC specific extensions */
-#define FL_Bitfield    0x4000   /* operand uses bf_offset/bf_width */
-#define FL_DoubleReg   0x8000   /* Dm:Dn or (Rm):(Rn), where both registers
+#define FL_ZBase        0x400   /* ZAn base register specified */
+#define FL_ZIndex       0x800   /* ZRn index register specified */
+#define FL_BaseReg     0x1000   /* BASEREG expression in exp.value[0] */
+#define FL_BnReg       0x4000   /* Apollo: Bn register instead of An */
+#define FL_MAC         0x8000   /* ColdFire MAC specific extensions */
+#define FL_Bitfield   0x10000   /* operand uses bf_offset/bf_width */
+#define FL_DoubleReg  0x20000   /* Dm:Dn or (Rm):(Rn), where both registers
                                    are put into "reg": 0nnn0mmm */
-#define FL_KFactor    0x10000   /* k-factor <ea>{#n} or <ea>{Dn}, which
+#define FL_KFactor    0x40000   /* k-factor <ea>{#n} or <ea>{Dn}, which
                                    can be found in bf_offset */
-#define FL_FPSpec     0x20000   /* special FPU reg. FPIAR/FPCR/FPSR only */
+#define FL_FPSpec     0x80000   /* special FPU reg. FPIAR/FPCR/FPSR only */
 
-#define FL_CheckMask  0x3f000   /* bits to check, when comparing with
+#define FL_CheckMask  0xfc000   /* bits to check, when comparing with
                                    flags from struct optype */
 
 /* addressing modes */

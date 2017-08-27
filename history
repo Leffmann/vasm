@@ -1,6 +1,36 @@
 vasm history
 =============
 
+- 1.8a (13.08.17)
+o Increased number of fast-optimization passes from 50 to 200, as
+  very large sources (> 60000 lines), with lots of branches to optimize,
+  may still have optimization possibilities left after 50 passes.
+o Repeat loops with an iterator symbol over an arbitrary sequence of values.
+o m68k: New option -sd and directive OPT ON to enable optimizations of
+  absolute references to the small data section into a base register
+  relative addressing mode.
+o m68k: New option -opt-jbra and directive OPT OB to convert all absolute
+  jumps to external labels into 32-bit PC-relative branches (68020 and up).
+o m68k: OPT O+ in Devpac compatibilty mode does not enable PC-relative
+  optimizations (an explicit OPT A+ is needed).
+o m68k: New Apollo Core instructions: PMULA, PMULH, STOREC, UNPACK1632.
+o m68k: -m68020up option no longer includes Apollo Core.
+o m68k: Devpac OPT Ln (with n=0,1,2,etc. for Atari) is recognized,
+  although it has no effect at the moment.
+o m68k: Suppressed index registers ZRn, which are explicitely written in
+  the source, are no longer optimized away.
+o PPC: -m option to select the CPU model starts working. By default the
+  instruction set of a 32-bit PPC (G2, G3, G4) with AltiVec is supported.
+o x86: Floating point constants (.float, .double) are supported.
+o mot-syntax: Optional offset and length arguments for INCBIN
+  (contributed by Andreas Larsson).
+o std-syntax: New directives for gas compatibility: .irp and .irpc.
+o bin-output: Fixed another sign-problem while padding between sections.
+o hunk-output: Print source line for undefined symbols, when generating
+  an executable.
+o vobj-output: Ignore all internal/local symbols, except "*tmpNNNNNNNN*",
+  which is required for certain relocations.
+
 - 1.8 (16.05.17)
 o External references in ORG or RORG sections are allowed.
 o Option -depend only prints relative include file names, while the new

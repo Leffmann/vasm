@@ -7,7 +7,7 @@
 #include "vasm.h"
 #include "stabs.h"
 
-#define _VER "vasm 1.8"
+#define _VER "vasm 1.8a"
 char *copyright = _VER " (c) in 2002-2017 Volker Barthelmann";
 #ifdef AMIGA
 static const char *_ver = "$VER: " _VER " " __AMIGADATE__ "\r\n";
@@ -22,7 +22,7 @@ static const char *_ver = "$VER: " _VER " " __AMIGADATE__ "\r\n";
    optimized at the same time. After that the resolver enters a safe mode,
    where only a single instruction per pass is changed. */
 #define MAXPASSES 1000
-#define FASTOPTPHASE 50
+#define FASTOPTPHASE 200
 
 source *cur_src=NULL;
 char *filename,*debug_filename;
@@ -496,7 +496,7 @@ static int init_output(char *fmt)
     return init_output_aout(&output_copyright,&write_object,&output_args);
   if(!strcmp(fmt,"hunkexe")){
     exec_out=1;  /* executable format */
-    return init_output_hunkexe(&output_copyright,&write_object,&output_args);
+    return init_output_hunk(&output_copyright,&write_object,&output_args);
   }
   if(!strcmp(fmt,"tos")){
     exec_out=1;  /* executable format */
@@ -967,6 +967,7 @@ source *new_source(char *filename,char *text,size_t size)
   s->size = size;
   s->macro = NULL;
   s->repeat = 1;        /* read just once */
+  s->irpname = NULL;
   s->cond_level = clev; /* remember level of conditional nesting */
   s->num_params = -1;   /* not a macro, no parameters */
   s->param[0] = emptystr;
