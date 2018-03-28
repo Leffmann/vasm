@@ -1,5 +1,5 @@
 /* symbol.c - manage all kinds of symbols */
-/* (c) in 2014-2017 by Volker Barthelmann and Frank Wille */
+/* (c) in 2014-2018 by Volker Barthelmann and Frank Wille */
 
 #include "vasm.h"
 
@@ -310,7 +310,7 @@ symbol *new_labsym(section *sec,char *name)
 
       new = mymalloc(sizeof(*new));
       *new = *old;
-      general_error(5,name);
+      general_error(74,name);  /* label redefined (error) */
     }
     add = 0;
   }
@@ -462,10 +462,10 @@ int undef_regsym(char *name,int no_case,int type)
       return 1;
     }
     else
-      general_error(70);  /* register symbol has wrong type */
+      general_error(70,name);  /* register symbol has wrong type */
   }
   else
-    general_error(69);  /* register does not exist */
+    general_error(69,name);  /* register does not exist */
 
   return 0;
 }

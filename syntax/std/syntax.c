@@ -1,5 +1,5 @@
 /* syntax.c  syntax module for vasm */
-/* (c) in 2002-2017 by Volker Barthelmann and Frank Wille */
+/* (c) in 2002-2018 by Volker Barthelmann and Frank Wille */
 
 #include "vasm.h"
 #include "stabs.h"
@@ -13,7 +13,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm std syntax module 5.1 (c) 2002-2017 Volker Barthelmann";
+char *syntax_copyright="vasm std syntax module 5.1a (c) 2002-2018 Volker Barthelmann";
 hashtable *dirhash;
 
 static char textname[]=".text",textattr[]="acrx";
@@ -683,10 +683,10 @@ static void handle_incbin(char *s)
 
 static void handle_rept(char *s)
 {
-  taddr cnt = parse_constexpr(&s);
+  utaddr cnt = parse_constexpr(&s);
 
   eol(s);
-  new_repeat((int)cnt,NULL,NULL,
+  new_repeat(cnt,NULL,NULL,
              nodotneeded?rept_dirlist:drept_dirlist,
              nodotneeded?endr_dirlist:dendr_dirlist);
 }

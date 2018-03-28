@@ -4,7 +4,7 @@ which is available with the extension @code{oldstyle}.
 
 @section Legal
 
-    This module is written in 2002-2017 by Frank Wille and
+    This module is written in 2002-2018 by Frank Wille and
     is covered by the vasm copyright without modifications.
 
 @section Additional options for this version
@@ -396,6 +396,11 @@ CPU- and output-module allow it):
 @item rend
       Ends a @code{rorg} block of label relocation. Following labels will
       be based on @code{org} again.
+
+@item roffs <expression>
+      Sets the program counter <expression> bytes behind the start of the
+      current section. The new program counter must not be smaller than the
+      current one. The space will be padded with zeros.
 
 @item rorg <expression>
       Relocate all labels between @code{rorg} and @code{rend} based on the

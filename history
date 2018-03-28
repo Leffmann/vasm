@@ -1,6 +1,19 @@
 vasm history
 =============
 
+- 1.8c (15.03.18)
+o Relocated ORG blocks within a section were not recognized, when their
+  start address was 0.
+o The count in repeat-directives is always unsigned, even when given as
+  a negative value.
+o Check for target address space overflows.
+o Fixed crash when undefining non-existing register symbols.
+o A redefined label is no longer a warning, but an error.
+o arm: Fixed compile-error from last release.
+o vobj-output: Fixed uninitialized symbol index for internal/local symbols.
+o oldstyle-syntax: New directive ROFFS to set the program counter relative
+  to the start of the current section.
+
 - 1.8b (30.12.17)
 o Option -noialign disables the automatic instruction alignment.
 o m68k: New Apollo Core instructions (core >=4035.jic), provided by
@@ -366,7 +379,7 @@ o m68k: New option -sc to set small code mode (same as NEAR CODE directive).
 o mot-syntax: SECTION with a single argument defaults to a code section,
   except when the name is "data" or "bss".
 o hunk-output: New option -kick1hunks to use only those hunk types and
-  external reference types which have been valid at the time of Kickstart
+u  external reference types which have been valid at the time of Kickstart
   1.x for compatibility with old assembler sources and old linkers.
 o tos-output: A 16-bit aligned section size must also show up in the header.
 o tos-output: New option -monst for writing Devpac MonST-compatible

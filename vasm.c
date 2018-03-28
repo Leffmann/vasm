@@ -1,5 +1,5 @@
 /* vasm.c  main module for vasm */
-/* (c) in 2002-2017 by Volker Barthelmann */
+/* (c) in 2002-2018 by Volker Barthelmann */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -7,8 +7,8 @@
 #include "vasm.h"
 #include "stabs.h"
 
-#define _VER "vasm 1.8b"
-char *copyright = _VER " (c) in 2002-2017 Volker Barthelmann";
+#define _VER "vasm 1.8c"
+char *copyright = _VER " (c) in 2002-2018 Volker Barthelmann";
 #ifdef AMIGA
 static const char *_ver = "$VER: " _VER " " __AMIGADATE__ "\r\n";
 #endif
@@ -28,7 +28,7 @@ source *cur_src=NULL;
 char *filename,*debug_filename;
 section *current_section;
 char *inname,*outname,*listname;
-taddr inst_alignment=INST_ALIGN;
+taddr inst_alignment;
 int secname_attr;
 int unnamed_sections;
 int ignore_multinc;
@@ -177,13 +177,13 @@ static void resolve_section(section *sec)
   taddr rorg_pc,org_pc;
   int fastphase=FASTOPTPHASE;
   int pass=0;
-  int extrapass;
+  int extrapass,rorg;
   size_t size;
   atom *p;
 
   do{
     done=1;
-    rorg_pc=0;
+    rorg=0;
     if (++pass>=MAXPASSES){
       general_error(7,sec->name);
       break;
@@ -204,17 +204,19 @@ static void resolve_section(section *sec)
       else
 #endif
       if(p->type==RORG){
-        if(rorg_pc!=0)
+        if(rorg)
           general_error(43);  /* reloc org is already set */
         rorg_pc=*p->content.rorg;
         org_pc=sec->pc;
         sec->pc=rorg_pc;
         sec->flags|=ABSOLUTE;
+        rorg=1;
       }
-      else if(p->type==RORGEND&&rorg_pc!=0){
+      else if(p->type==RORGEND&&rorg){
         sec->pc=org_pc+(sec->pc-rorg_pc);
         rorg_pc=0;
         sec->flags&=~ABSOLUTE;
+        rorg=0;
       }
       else if(p->type==LABEL){
         symbol *label=p->content.label;
@@ -258,7 +260,7 @@ static void resolve_section(section *sec)
       }
       sec->pc+=size;
     }
-    if(rorg_pc!=0){
+    if(rorg){
       sec->pc=org_pc+(sec->pc-rorg_pc);
       sec->flags&=~ABSOLUTE;  /* workaround for misssing RORGEND */
     }
@@ -281,17 +283,17 @@ static void resolve(void)
 static void assemble(void)
 {
   section *sec;
-  taddr basepc;
-  taddr rorg_pc=0;
-  taddr org_pc;
+  taddr basepc,rorg_pc,org_pc;
   atom *p;
-  int bss;
+  int bss,rorg;
 
   convert_offset_labels();
   final_pass=1;
+  rorg=0;
   for(sec=first_section;sec;sec=sec->next){
     source *lasterrsrc=NULL;
-    int lasterrline=0;
+    utaddr oldpc;
+    int lasterrline=0,ovflw=0;
     sec->pc=sec->org;
     bss=strchr(sec->attr,'u')!=NULL;
     for(p=sec->first;p;p=p->next){
@@ -322,12 +324,14 @@ static void assemble(void)
         org_pc=sec->pc;
         sec->pc=rorg_pc;
         sec->flags|=ABSOLUTE;
+        rorg=1;
       }
       else if(p->type==RORGEND){
-        if(rorg_pc!=0){
+        if(rorg){
           sec->pc=org_pc+(sec->pc-rorg_pc);
           rorg_pc=0;
           sec->flags&=~ABSOLUTE;
+          rorg=0;
         }
         else
           general_error(44);  /* reloc org was not set */
@@ -410,14 +414,21 @@ static void assemble(void)
           lasterrline=p->line;
         }
       }
+      oldpc=sec->pc;
       sec->pc+=atom_size(p,sec,sec->pc);
+      if((utaddr)sec->pc!=oldpc){
+        if((utaddr)(sec->pc-1)<oldpc||ovflw)
+          general_error(45);  /* address space overflow */
+        ovflw=sec->pc==0;
+      }
       sec->flags&=~RESOLVE_WARN;
     }
     /* leave RORG-mode, when section ends */
-    if(rorg_pc!=0){
+    if(rorg){
       sec->pc=org_pc+(sec->pc-rorg_pc);
       rorg_pc=0;
       sec->flags&=~ABSOLUTE;
+      rorg=0;
     }
   }
   remove_unalloc_sects();
@@ -527,6 +538,7 @@ static int init_main(void)
   }
   new_include_path(".");
   taddrmask=MAKEMASK(bytespertaddr<<3);
+  inst_alignment=INST_ALIGN;
   return 1;
 }
 

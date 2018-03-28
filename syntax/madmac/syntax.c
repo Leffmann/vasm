@@ -1,5 +1,5 @@
 /* syntax.c  syntax module for vasm */
-/* (c) in 2015-2017 by Frank Wille */
+/* (c) in 2015-2018 by Frank Wille */
 
 #include "vasm.h"
 
@@ -12,7 +12,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm madmac syntax module 0.4c (c) 2015-2017 Frank Wille";
+char *syntax_copyright="vasm madmac syntax module 0.4d (c) 2015-2018 Frank Wille";
 hashtable *dirhash;
 char commentchar = ';';
 
@@ -496,7 +496,7 @@ static void handle_incbin(char *s)
 
 static void handle_rept(char *s)
 {
-  new_repeat((int)parse_constexpr(&s),NULL,NULL,rept_dirlist,endr_dirlist);
+  new_repeat((utaddr)parse_constexpr(&s),NULL,NULL,rept_dirlist,endr_dirlist);
   eol(s);
 }
 

@@ -1,10 +1,10 @@
 /* output_vasm.c vobj format output driver for vasm */
-/* (c) in 2002-2017 by Volker Barthelmann */
+/* (c) in 2002-2018 by Volker Barthelmann */
 
 #include "vasm.h"
 
 #ifdef OUTVOBJ
-static char *copyright="vasm vobj output module 0.9 (c) 2002-2017 Volker Barthelmann";
+static char *copyright="vasm vobj output module 0.9a (c) 2002-2018 Volker Barthelmann";
 
 /*
   Format (WILL CHANGE!):
@@ -221,6 +221,8 @@ static void write_output(FILE *f,section *sec,symbol *sym)
   for(nsyms=1,symp=first;symp;symp=symp->next){
     if(sym_valid(symp))
       symp->idx=nsyms++;
+    else
+      symp->idx=0;  /* use section-symbol, when needed */
   }
 
   fw32(f,0x564f424a,1); /* "VOBJ" */

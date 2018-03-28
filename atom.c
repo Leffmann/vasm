@@ -1,5 +1,5 @@
 /* atom.c - atomic objects from source */
-/* (c) in 2010-2016 by Volker Barthelmann and Frank Wille */
+/* (c) in 2010-2018 by Volker Barthelmann and Frank Wille */
 
 #include "vasm.h"
 
@@ -156,11 +156,8 @@ static size_t space_size(sblock *sb,section *sec,taddr pc)
 {
   utaddr space=0;
 
-  if (eval_expr(sb->space_exp,&space,sec,pc) || !final_pass) {
+  if (eval_expr(sb->space_exp,&space,sec,pc) || !final_pass)
     sb->space = space;
-    if ((utaddr)(pc+space) < (utaddr)pc)
-      general_error(45);  /* illegal negative value */
-  }
   else
     general_error(30);  /* expression must be constant */
 
