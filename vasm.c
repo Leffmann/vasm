@@ -7,7 +7,7 @@
 #include "vasm.h"
 #include "stabs.h"
 
-#define _VER "vasm 1.8c"
+#define _VER "vasm 1.8d"
 char *copyright = _VER " (c) in 2002-2018 Volker Barthelmann";
 #ifdef AMIGA
 static const char *_ver = "$VER: " _VER " " __AMIGADATE__ "\r\n";
@@ -1482,7 +1482,7 @@ void write_listing(char *listname)
         if(a->content.db->relocs)
           fprintf(f," [R]");
       }
-      if(a->next&&a->next->line==a->line&&a->next->src==a->src){
+      if(a->next&&a->next->list==a->list){
         a=a->next;
         pc=pcalign(a,pc);
       }else

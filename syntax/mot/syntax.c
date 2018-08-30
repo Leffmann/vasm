@@ -12,7 +12,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm motorola syntax module 3.11c (c) 2002-2018 Frank Wille";
+char *syntax_copyright="vasm motorola syntax module 3.11d (c) 2002-2018 Frank Wille";
 hashtable *dirhash;
 char commentchar = ';';
 
@@ -125,6 +125,8 @@ int isidchar(char c)
   if (dot_idchar && c=='.')
     return 1;
   if (phxass_compat && (unsigned char)c>=0x80)
+    return 1;
+  if (devpac_compat && c=='?')
     return 1;
   return 0;
 }
@@ -627,8 +629,10 @@ static void handle_data(char *s,int size)
     s = skip(s);
     if (*s == ',')
       s = skip(s+1);
-    else
+    else {
+      eol(s);
       break;
+    }
   }
 }
 
@@ -1740,9 +1744,11 @@ void parse(void)
       int idx;
 
       /* skip label, when present */
-      if (labname = parse_labeldef(&s,0))
+      if (labname = parse_labeldef(&s,0)) {
+        if (*s == ':')
+          s++;  /* skip double-colon */
         myfree(labname);
-
+      }
       /* advance to directive */
       s = skip(s);
       idx = check_directive(&s);
@@ -1759,9 +1765,15 @@ void parse(void)
 
     if (labname = parse_labeldef(&s,0)) {
       /* we have found a global or local label */
-      symbol *label;
       int lablen = strlen(labname);
+      uint32_t symflags = 0;
+      symbol *label;
 
+      if (*s == ':') {
+        /* double colon automatically declares label as exported */
+        symflags |= EXPORT;
+        s++;
+      }
       s = skip(s);
       if (!strnicmp(s,"equ",3) && isspace((unsigned char)*(s+3))) {
         s = skip(s+3);
@@ -1819,6 +1831,7 @@ void parse(void)
       else {
 #endif
         label = new_labsym(0,labname);
+        label->flags |= symflags;
         add_atom(0,new_label_atom(label));
       }
       myfree(labname);

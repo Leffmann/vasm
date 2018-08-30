@@ -257,6 +257,9 @@ vasm performs the following optimizations:
         the instruction is unsized or there is just a single size possible.
         This is the default setting in PhxAss and Devpac compatibility mode.
 
+    @item -kick1hunks
+        Prevents optimization of JMP/JSR to 32-bit PC-relative (BRA/BSR).
+
     @item -phxass
         PhxAss-compatibilty mode. The "current PC symbol" (e.g. @code{*} in
         mot-syntax module) is set to the instruction's address + 2 whenever

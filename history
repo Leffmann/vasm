@@ -1,6 +1,26 @@
 vasm history
 =============
 
+- 1.8d (20.08.18)
+o Repeat-loops with a single line generated a malformatted listing file.
+o m68k: Recognize (PC) addressing mode and transform it into (0,PC).
+o m68k: Only "fpu 1..7" may enable FPU code generation.
+o m68k: -kick1hunks also prevents optimizing from absolute to 32-bit
+  PC-relative.
+o arm: Fixed instruction alignment in Thumb mode, which was broken since
+  1.8b (introduction of -noialign option).
+o arm: Fix for immediate operands like cmp r0,#'A' not working properly in
+  thumb mode (provided by Peter Petterson).
+o PPC: tlbld is available as general PPC instruction again.
+o z80: SBC addressing modes IX,ss and SBC IY,ss do not exist.
+o z80: EX (SP),HL is not supported by GBZ80, but SRL is.
+o mot-syntax: Report garbage at end of line for DC directives.
+o mot-syntax: Labels with a double colon are automatically exported (xdef).
+o mot-syntax: Allow '?' within identifiers, in Devpac-compatibility mode.
+o madmac-syntax: Report garbage at end of line for DC directives.
+o std-syntax: Fixed \@ (unique id) in macros, which was broken since 1.7h.
+o vobj-output: Prevent crash when referencing undefined local symbols.
+
 - 1.8c (15.03.18)
 o Relocated ORG blocks within a section were not recognized, when their
   start address was 0.

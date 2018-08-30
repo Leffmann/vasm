@@ -4,7 +4,7 @@
 #include "vasm.h"
 
 #ifdef OUTVOBJ
-static char *copyright="vasm vobj output module 0.9a (c) 2002-2018 Volker Barthelmann";
+static char *copyright="vasm vobj output module 0.9b (c) 2002-2018 Volker Barthelmann";
 
 /*
   Format (WILL CHANGE!):
@@ -103,8 +103,13 @@ static int count_relocs(rlist *rl)
   int nrelocs;
 
   for(nrelocs=0; rl; rl=rl->next) {
-    if(rl->type>=FIRST_STANDARD_RELOC && rl->type<=LAST_STANDARD_RELOC)
-      nrelocs++;
+    if(rl->type>=FIRST_STANDARD_RELOC && rl->type<=LAST_STANDARD_RELOC) {
+      nreloc *r = (nreloc *)rl->reloc;
+      if (r->sym->type==IMPORT&&!sym_valid(r->sym))
+        unsupp_reloc_error(rl);
+      else
+        nrelocs++;
+    }
     else
       unsupp_reloc_error(rl);
   }
@@ -164,9 +169,12 @@ static void write_rlist(FILE *f,section *sec,rlist *rl)
   for(;rl;rl=rl->next){
     if(rl->type>=FIRST_STANDARD_RELOC&&rl->type<=LAST_STANDARD_RELOC){
       nreloc *rel=rl->reloc;
-      write_number(f,rl->type);
-      if(!(idx=rel->sym->idx))
+      if(!(idx=rel->sym->idx)){
+        if(rel->sym->type==IMPORT&&!sym_valid(rel->sym))
+          continue;
         idx=rel->sym->sec->idx;  /* symbol does not exist, use section-symbol */
+      }
+      write_number(f,rl->type);
       write_number(f,sec->pc+rel->byteoffset);
       write_number(f,rel->bitoffset);
       write_number(f,rel->size);

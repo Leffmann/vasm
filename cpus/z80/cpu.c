@@ -132,7 +132,7 @@ mnemonic mnemonics[] = {
 
 
 
-    "ex",   { OP_SP|OP_INDIR, OP_HL|OP_INDEX|OP_RALT},          { TYPE_NONE, 0xe3, CPU_ALL, F_ALTD, RCM_EMU_INCREMENT, RCM_EMU_INCREMENT, RCM_EMU_INCREMENT  },
+    "ex",   { OP_SP|OP_INDIR, OP_HL|OP_INDEX|OP_RALT},          { TYPE_NONE, 0xe3, CPU_NOTGB80, F_ALTD, RCM_EMU_INCREMENT, RCM_EMU_INCREMENT, RCM_EMU_INCREMENT  },
     "ex",   { OP_SP|OP_INDIR, OP_HL|OP_INDEX|OP_RALT},          { TYPE_NONE, 0xed54, CPU_RABBIT, F_ALTD}, /* Must be after standard ex for rabbit compat */
 
     "exp",  { OP_NONE },                                        { TYPE_NONE, 0xedd9, CPU_RCM4000, 0 },
@@ -504,7 +504,7 @@ mnemonic mnemonics[] = {
     "sbc",  { OP_A|OP_RALT, OP_REG8 | OP_INDEX },               { TYPE_ARITH8, 0x7f98, CPU_RCM4000, F_ALTD },
     "sbc",  { OP_A|OP_RALT, OP_ABS },                           { TYPE_NONE, 0xde, CPU_ALL , F_ALTD},
     "sbc",  { OP_ABS },                                         { TYPE_NONE, 0xde, CPU_ALL, F_ALTD },
-    "sbc",  { OP_HL|OP_INDEX|OP_RALT, OP_ARITH16 },             { TYPE_ARITH16, 0xed42, CPU_ZILOG|CPU_RABBIT, F_ALTD },
+    "sbc",  { OP_HL|OP_RALT, OP_ARITH16 },                      { TYPE_ARITH16, 0xed42, CPU_ZILOG|CPU_RABBIT, F_ALTD },
 
     "sbox", { OP_A },                                           { TYPE_NONE, 0xed02, CPU_RCM4000, F_ALTD },
 
@@ -526,7 +526,7 @@ mnemonic mnemonics[] = {
     "sra",  { OP_REG8|OP_RALT, },                               { TYPE_ARITH8, 0xcb28, CPU_NOT8080, F_ALTD },
 
 
-    "srl",  { OP_REG8|OP_RALT, },                               { TYPE_ARITH8, 0xcb38, CPU_ZILOG|CPU_RABBIT, F_ALTD },
+    "srl",  { OP_REG8|OP_RALT, },                               { TYPE_ARITH8, 0xcb38, CPU_ZILOG|CPU_RABBIT|CPU_GB80, F_ALTD },
 
     "stop", { OP_NONE },                                        { TYPE_NONE, 0x10, CPU_GB80, 0 },
 
@@ -576,7 +576,7 @@ mnemonic mnemonics[] = {
 
 int mnemonic_cnt=sizeof(mnemonics)/sizeof(mnemonics[0]);
 
-char *cpu_copyright="vasm 8080/gbz80/z80/z180/rcmX000 cpu backend 0.2h (c) 2007,2009 Dominic Morris";
+char *cpu_copyright="vasm 8080/gbz80/z80/z180/rcmX000 cpu backend 0.3 (c) 2007,2009 Dominic Morris";
 char *cpuname = "z80";
 int bitsperbyte = 8;
 int bytespertaddr = 2;

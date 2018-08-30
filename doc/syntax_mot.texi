@@ -4,7 +4,7 @@ M68k and ColdFire families of CPUs, which is available with the extension
 
 @section Legal
 
-    This module is written in 2002-2017 by Frank Wille and
+    This module is written in 2002-2018 by Frank Wille and
     is covered by the vasm copyright without modifications.
 
 @section Additional options for this version
@@ -72,10 +72,8 @@ This syntax module provides the following additional options:
 Labels must either start at the first column of a line or need to be
 terminated by a colon (@code{:}). In the first case the mnemonic
 has to be separated from the label by whitespace (not required in any case,
-e.g. with a @code{=} directive). Qualifiers are appended to the mnemonic,
-separated by a dot (if the CPU-module supports qualifiers). The
-operands are separated from the mnemonic by whitespace. Multiple
-operands are separated by comma (@code{,}).
+e.g. with a @code{=} directive). A double colon (@code{::})
+automatically makes the label externally visible (refer to @code{xdef}).
 
 Local labels are preceded by '@code{.}' or terminated by '@code{$}'.
 For the rest, any alphanumeric character including '@code{_}' is allowed.
@@ -93,6 +91,11 @@ with macro arguments.
 
 Make sure that you don't define a label on the same line as a
 directive for conditional assembly (if, else, endif)! This is not supported.
+
+Qualifiers are appended to the mnemonic,
+separated by a dot (if the CPU-module supports qualifiers). The
+operands are separated from the mnemonic by whitespace. Multiple
+operands are separated by comma (@code{,}).
 
 In this syntax module, the operand field must not contain any whitespace
 characters, as long as the option @option{-spaces} was not specified.

@@ -13,7 +13,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm std syntax module 5.1a (c) 2002-2018 Volker Barthelmann";
+char *syntax_copyright="vasm std syntax module 5.1b (c) 2002-2018 Volker Barthelmann";
 hashtable *dirhash;
 
 static char textname[]=".text",textattr[]="acrx";
@@ -1305,6 +1305,7 @@ int expand_macro(source *src,char **line,char *d,int dlen)
     /* possible macro expansion detected */
     if (*s == '@') {
       /* \@: insert a unique id */
+      s++;
       nc = sprintf(d,"%lu",src->id);
       if (nc >= dlen)
         nc = -1;

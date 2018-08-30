@@ -12,7 +12,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm madmac syntax module 0.4d (c) 2015-2018 Frank Wille";
+char *syntax_copyright="vasm madmac syntax module 0.4e (c) 2015-2018 Frank Wille";
 hashtable *dirhash;
 char commentchar = ';';
 
@@ -324,8 +324,10 @@ static void handle_datadef(char *s,int sz)
     s = skip(s);
     if (*s == ',')
       s = skip(s+1);
-    else
+    else {
+      eol(s);
       break;
+    }
   }
 }
 

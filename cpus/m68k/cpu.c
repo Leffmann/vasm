@@ -1,6 +1,6 @@
 /*
 ** cpu.c Motorola M68k, CPU32 and ColdFire cpu-description file
-** (c) in 2002-2017 by Frank Wille
+** (c) in 2002-2018 by Frank Wille
 */
 
 #include <math.h>
@@ -24,7 +24,7 @@ struct cpu_models models[] = {
 int model_cnt = sizeof(models)/sizeof(models[0]);
 
 
-char *cpu_copyright="vasm M68k/CPU32/ColdFire cpu backend 2.3b (c) 2002-2017 Frank Wille";
+char *cpu_copyright="vasm M68k/CPU32/ColdFire cpu backend 2.3c (c) 2002-2018 Frank Wille";
 char *cpuname = "M68k";
 int bitsperbyte = 8;
 int bytespertaddr = 4;
@@ -75,6 +75,7 @@ static unsigned char ign_unambig_ext = 0;  /* don't check unambig. size ext. */
 static unsigned char regsymredef = 0; /* allow redefinition of reg. symbols */
 static unsigned char phxass_compat = 0;
 static unsigned char devpac_compat = 0;
+static unsigned char kick1hunks = 0;
 static char current_ext;              /* extension of current parsed inst. */
 
 static char b_str[] = "b";
@@ -1705,6 +1706,11 @@ int parse_operand(char *p,int len,operand *op,int required)
                   op->reg = REGget(reg);
                   check_basereg(op);
                 }
+              }
+              else if (REGisPC(reg)) {
+                op->mode = MODE_Extended;             /* (PC) -> (0,PC) */
+                op->reg = REG_PC16Disp;
+                op->value[0] = number_expr(0);
               }
               else {
                 if (*p == '+') {
@@ -3545,7 +3551,7 @@ dontswap:
         if (final && warn_opts>1)
           cpu_error(51,"jmp/jsr -> jmp/jsr (PC)");
       }
-      else if (opt_jbra && (cpu_type & (m68020up|cpu32))) {
+      else if (opt_jbra && !kick1hunks && (cpu_type & (m68020up|cpu32))) {
         /* JMP/JSR extlabel -> BRA.L/BSR.L extlabel (68020+, CPU32) */
         ip->qualifiers[0] = l_str;
         ip->code = (oc & 0x40) ? OC_BRA : OC_BSR;
@@ -5025,6 +5031,11 @@ int cpu_args(char *arg)
     return 0;  /* leave option visible for syntax modules */
   }
 
+  if (!strcmp(p,"-kick1hunks")) {
+    kick1hunks = 1;
+    return  0;  /* leave option visible for syntax modules */
+  }
+
   if (!strncmp(p,"-m",2)) {
     uint32_t cpu;
 
@@ -5683,7 +5694,7 @@ char *parse_cpu_special(char *start)
       s = skip(s);
       if (validchar(s))
         id = parse_constexpr(&s);
-      if (id && !no_fpu) {
+      if (id>0 && id<8 && !no_fpu) {
         fpu_id = (unsigned char)id;
         add_cpu_opt(0,OCMD_FPU,fpu_id);
         cpu_type |= m68881|m68882;
