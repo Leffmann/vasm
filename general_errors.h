@@ -10,7 +10,7 @@
   "number or identifier expected",ERROR,
   "could not initialize %s module",NOLINE|ERROR|FATAL,          /* 10 */
   "multiple input files",NOLINE|ERROR,
-  "could not open <%s> for input",NOLINE|ERROR|FATAL,
+  "could not open <%s> for input",ERROR|FATAL,
   "could not open <%s> for output",NOLINE|ERROR|FATAL,
   "unknown option <%s>",NOLINE|ERROR,
   "no input file specified",NOLINE|ERROR|FATAL,                 /* 15 */

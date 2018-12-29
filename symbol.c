@@ -19,10 +19,12 @@ static hashtable *regsymhash;
 static void print_type(FILE *f,symbol *p)
 {
   static const char *typename[] = {"???","obj","func","sect","file"};
+  int t;
 
   if (p == NULL)
     ierror(0);
-  fprintf(f,"type=%s ",typename[TYPE(p)]);
+  t = TYPE(p);
+  fprintf(f,"type=%s ",typename[t<=TYPE_LAST?t:0]);
 }
 
 

@@ -124,6 +124,10 @@ Detailed instructions how to build vasm can be found in the last chapter.
 @chapter Amiga output module
 @include output_hunk.texi
 
+@node X68k output module
+@chapter X68k output module
+@include output_xfile.texi
+
 @node vobj output module
 @chapter vobj output module
 @include output_vobj.texi

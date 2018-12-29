@@ -132,7 +132,7 @@ CPU- and output-module allow it):
       Insert <exp> zero or <fill> 16-bit words into the current section,
       using the endianess of the target CPU.
 
-@item bsz exp>[,<fill>]
+@item bsz <exp>[,<fill>]
       Equivalent to @code{blk <exp>[,<fill>]}.
 
 @item byt
@@ -397,6 +397,9 @@ CPU- and output-module allow it):
       Ends a @code{rorg} block of label relocation. Following labels will
       be based on @code{org} again.
 
+@item rmb <exp>[,<fill>]
+      Equivalent to @code{blk <exp>[,<fill>]}. (Not available for 6502 CPU.)
+
 @item roffs <expression>
       Sets the program counter <expression> bytes behind the start of the
       current section. The new program counter must not be smaller than the
@@ -509,6 +512,8 @@ CPU- and output-module allow it):
 @item xref  <symbol>[,<symbol>...]
         See @code{global}.
 
+@item zmb <exp>[,<fill>]
+      Equivalent to @code{blk <exp>[,<fill>]}.
 @end table
 
 

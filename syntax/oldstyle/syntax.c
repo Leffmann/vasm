@@ -12,7 +12,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm oldstyle syntax module 0.13e (c) 2002-2018 Frank Wille";
+char *syntax_copyright="vasm oldstyle syntax module 0.13f (c) 2002-2018 Frank Wille";
 hashtable *dirhash;
 
 static char textname[]=".text",textattr[]="acrx";
@@ -959,7 +959,9 @@ struct {
   "structure",handle_struct,
   "endstruct",handle_endstruct,
   "endstructure",handle_endstruct,
+#if !defined(VASM_CPU_650X)
   "rmb",handle_spc8,
+#endif
   "fcc",handle_text,
   "fcb",handle_d8,
   "fdb",handle_d16,

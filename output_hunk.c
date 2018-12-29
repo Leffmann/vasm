@@ -1,10 +1,11 @@
 /* output_hunk.c AmigaOS hunk format output driver for vasm */
-/* (c) in 2002-2017 by Frank Wille */
+/* (c) in 2002-2018 by Frank Wille */
 
 #include "vasm.h"
+#include "osdep.h"
 #include "output_hunk.h"
 #if defined(OUTHUNK) && (defined(VASM_CPU_M68K) || defined(VASM_CPU_PPC))
-static char *copyright="vasm hunk format output module 2.9b (c) 2002-2017 Frank Wille";
+static char *copyright="vasm hunk format output module 2.9c (c) 2002-2018 Frank Wille";
 int hunk_onlyglobal;
 
 static int databss;
@@ -560,15 +561,25 @@ static void add_linedebug(struct list *ldblist,uint32_t line,uint32_t off)
 static void linedebug_hunk(FILE *f,struct list *ldblist,int num)
 {
   if (num > 0) {
+    char pathbuf[MAXPATHLEN];
+    uint32_t srcname_len;
     struct hunkline *hl;
-    uint32_t srcname_len = strlen32(getdebugname());
+
+    if (!abs_path(getdebugname())) {
+      char *cwd = append_path_delimiter(get_workdir());
+      snprintf(pathbuf,MAXPATHLEN,"%s%s",cwd,getdebugname());
+      myfree(cwd);
+    }
+    else
+      strcpy(pathbuf,getdebugname());
+    srcname_len = strlen32(pathbuf);
 
     fw32(f,HUNK_DEBUG,1);
     fw32(f,srcname_len + num*2 + 3,1);
     fw32(f,0,1);
     fw32(f,0x4c494e45,1);  /* "LINE" */
     fw32(f,srcname_len,1);
-    fwname(f,getdebugname());
+    fwname(f,pathbuf);
 
     for (hl=(struct hunkline *)ldblist->first;
          hl->n.next; hl=(struct hunkline *)hl->n.next) {
@@ -691,7 +702,7 @@ static void write_object(FILE *f,section *sec,symbol *sym)
 
         /* section type */
         if (!(type = scan_attr(sec))) {
-          output_error(3,sec->attr);  /* section attributes not suppported */
+          output_error(3,sec->attr);  /* section attributes not supported */
           type = HUNK_DATA;  /* default */
         }
         fwmemflags(f,sec,type);
@@ -805,7 +816,7 @@ static void write_exec(FILE *f,section *sec,symbol *sym)
 
         /* write hunk-type and size */
         if (!(type = scan_attr(sec))) {
-          output_error(3,sec->attr);  /* section attributes not suppported */
+          output_error(3,sec->attr);  /* section attributes not supported */
           type = HUNK_DATA;  /* default */
         }
         fw32(f,type,1);

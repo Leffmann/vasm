@@ -5,6 +5,7 @@
 
 #include <math.h>
 #include "vasm.h"
+#include "error.h"
 
 #include "operands.h"
 
@@ -3877,6 +3878,10 @@ size_t instruction_size(instruction *realip,section *sec,taddr pc)
 
   extsize = mnemo->ext.size;
 
+  /* remember the instruction's original extension, before optimizations */
+  if (realip->ext.un.real.orig_ext < 0)
+    realip->ext.un.real.orig_ext = (signed char)ext;
+
   if (opt_allbra && ign_unambig_ext) {
     /* Strip the size extension from branch instructions, no matter if
        illegal or not. The optimizer will find the best size. */
@@ -3971,10 +3976,6 @@ size_t instruction_size(instruction *realip,section *sec,taddr pc)
     if (!(mnemo->ext.available & cpu_type))
       cpu_error(0);  /* instruction not supported */
   }
-
-  /* remember the instruction's original extension, before optimizations */
-  if (realip->ext.un.real.orig_ext < 0)
-    realip->ext.un.real.orig_ext = (signed char)ext;
 
   /* check if we are uncertain about the side of a register list operand */
 #if 0

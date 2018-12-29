@@ -212,6 +212,11 @@ was included or called.
         during parsing and later from the atoms. But an include directive
         doesn't create an atom.
 
+@item struct source_file *srcfile;
+        The @code{source_file} structure has the unique file name, index
+        and text-pointer for this source text instance.
+        Used for debugging output, like DWARF.
+
 @item char *name;
         File name of the main source or include file, or macro name.
 
@@ -220,6 +225,15 @@ was included or called.
 
 @item size_t size;
         Size of the source text to assemble in bytes.
+
+@item struct source *defsrc;
+        This is a @code{NULL}-pointer for real source text files. Otherwise
+        it is a reference to the source which defines the current macro
+        or repetition.
+
+@item int defline;
+        Valid when @code{defsrc} is not @code{NULL}. Contains the starting
+        line number of a macro or repetition in a source text file.
 
 @item macro *macro;
         Pointer to macro structure, when currently inside a macro

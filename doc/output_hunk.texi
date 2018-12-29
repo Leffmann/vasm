@@ -101,7 +101,7 @@ This module has the following error messages:
 @item 3001: multiple sections not supported by this format
 @item 3002: output module doesn't support cpu <name>
 @item 3003: write error
-@item 3004: section attributes <attr> not suppported
+@item 3004: section attributes <attr> not supported
 @item 3005: reloc type <m>, size <n>, mask <mask> (symbol <sym> + <offset>) not supported
 @item 3006: reloc type <n> not supported
 @item 3009: undefined symbol <%s> at %s+0x%lx, reloc type %d

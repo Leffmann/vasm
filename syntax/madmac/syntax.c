@@ -2,6 +2,7 @@
 /* (c) in 2015-2018 by Frank Wille */
 
 #include "vasm.h"
+#include "error.h"
 
 /* The syntax module parses the input (read_next_line), handles
    assembly-directives (section, data-storage etc.) and parses

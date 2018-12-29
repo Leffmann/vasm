@@ -1,6 +1,23 @@
 vasm history
 =============
 
+- 1.8e (28.12.18)
+o New option -dwarf automatically generates line debug information for
+  source level debugging in DWARF V2 or DWARF V3 format.
+o New output module for Sharp X68000 Xfile executables. Can be selected
+  with the -Fxfile option.
+o Repeatedly included files are only loaded once into memory.
+o m68k: Avoid wrong branch-optimization info messages with -opt-allbra.
+o 6502: Fixed LDA (zp,X) in 65C02 mode (-c02).
+o 6502: -wdc02 enables the WDC65C02 extensions, like RMB, SMB, BBR, BBS.
+o 6502: Support for Hudson Soft HuC6280 (new option -6280).
+o 6502: New directive SETDP to set the current zero/direct-page address
+  for optimizations from abs to zp addressing modes.
+o x86: Fixed crash with SWAPGS, when not supported by current cpu.
+o std-syntax: Fixed potential buffer overflow when parsing macro arguments.
+o output-hunk: Always try to include the full absolute source-path when
+  writing LINE debug hunks (-linedebug option).
+
 - 1.8d (20.08.18)
 o Repeat-loops with a single line generated a malformatted listing file.
 o m68k: Recognize (PC) addressing mode and transform it into (0,PC).

@@ -443,6 +443,68 @@ atom *clone_atom(atom *a)
 }
 
 
+atom *add_data_atom(section *sec,size_t sz,taddr alignment,taddr c)
+{
+  dblock *db = new_dblock();
+  atom *a;
+
+  db->size = sz;
+  db->data = mymalloc(sz);
+  if (sz > 1)
+    setval(BIGENDIAN,db->data,sz,c);
+  else
+    *(db->data) = c;
+
+  a = new_data_atom(db,alignment);
+  add_atom(sec,a);
+  return a;
+}
+
+
+void add_leb128_atom(section *sec,taddr c)
+{
+  taddr b;
+
+  do {
+    b = c & 0x7f;
+    if ((c >>= 7) != 0)
+      b |= 0x80;
+    add_data_atom(sec,1,1,b);
+  } while (c != 0);
+}
+
+
+void add_sleb128_atom(section *sec,taddr c)
+{
+  int done = 0;
+  taddr b;
+
+  do {
+    b = c & 0x7f;
+    c >>= 7;  /* assumes arithmetic shifts! */
+    if ((c==0 && !(b&0x40)) || (c==-1 && (b&0x40)))
+      done = 1;
+    else
+      b |= 0x80;
+    add_data_atom(sec,1,1,b);
+  } while (!done);
+}
+
+
+atom *add_bytes_atom(section *sec,void *p,size_t sz)
+{
+  dblock *db = new_dblock();
+  atom *a;
+
+  db->size = sz;
+  db->data = mymalloc(sz);
+  memcpy(db->data,p,sz);
+  a = new_data_atom(db,1);
+  add_atom(sec,a);
+  return a;
+}
+
+
 static atom *new_atom(int type,taddr align)
 {
   atom *new = mymalloc(sizeof(*new));
