@@ -1,11 +1,11 @@
 /* output_hunk.c AmigaOS hunk format output driver for vasm */
-/* (c) in 2002-2018 by Frank Wille */
+/* (c) in 2002-2019 by Frank Wille */
 
 #include "vasm.h"
 #include "osdep.h"
 #include "output_hunk.h"
 #if defined(OUTHUNK) && (defined(VASM_CPU_M68K) || defined(VASM_CPU_PPC))
-static char *copyright="vasm hunk format output module 2.9c (c) 2002-2018 Frank Wille";
+static char *copyright="vasm hunk format output module 2.10 (c) 2002-2019 Frank Wille";
 int hunk_onlyglobal;
 
 static int databss;
@@ -258,6 +258,34 @@ static utaddr file_size(section *sec)
 }
 
 
+static utaddr sect_size(section *sec)
+/* determine full section size, subtracted by the space explicitely
+   reserved for databss (DX directive) */
+{
+  utaddr dbss = 0;
+
+  utaddr pc=0,zpc=0,npc;
+  atom *a;
+
+  for (a=sec->first; a; a=a->next) {
+    if (a->type == SPACE) {
+      sblock *sb = a->content.sb;
+    
+      if (sb->flags & SPC_DATABSS) {
+        dbss += sb->space * sb->size;
+        continue;
+      }
+    }
+    if (dbss>0 && (a->type==SPACE || a->type==DATA)) {
+      output_atom_error(13,a);  /* warn about data following a DX directive */
+      dbss = 0;
+    }
+  }
+
+  return get_sec_size(sec) - dbss;
+}
+
+
 static struct hunkreloc *convert_reloc(rlist *rl,utaddr pc)
 {
   nreloc *r = (nreloc *)rl->reloc;
@@ -327,6 +355,7 @@ static struct hunkreloc *convert_reloc(rlist *rl,utaddr pc)
       }
 
       hr = mymalloc(sizeof(struct hunkreloc));
+      hr->rl = rl;
       hr->hunk_id = type;
       hr->hunk_offset = offs;
       hr->hunk_index = r->sym->sec->idx;
@@ -639,7 +668,7 @@ static void ext_refs(FILE *f,struct list *xreflist)
         myfree(x);
       }
       x = next;
-    }
+    } 
   }
 }
 
@@ -666,6 +695,17 @@ static void ext_defs(FILE *f,int symtype,int global,size_t idx,
   }
   if (header && xtype==EXT_SYMB)
     fw32(f,0,1);
+}
+
+
+static void report_bad_relocs(struct list *reloclist)
+{
+  struct hunkreloc *r;
+
+  /* report all remaining relocs in the list as unsupported */
+  for (r=(struct hunkreloc *)reloclist->first; r->n.next;
+       r=(struct hunkreloc *)r->n.next)
+    unsupp_reloc_error(r->rl);  /* reloc not supported */
 }
 
 
@@ -749,6 +789,7 @@ static void write_object(FILE *f,section *sec,symbol *sym)
         reloc_hunk(f,HUNK_RELRELOC26,0,&reloclist);
         reloc_hunk(f,HUNK_RELRELOC32,0,&reloclist);
         reloc_hunk(f,HUNK_DREL16,0,&reloclist);
+        report_bad_relocs(&reloclist);
 
         /* external references and global definitions */
         exthunk = 0;
@@ -825,7 +866,7 @@ static void write_exec(FILE *f,section *sec,symbol *sym)
           /* write contents */
           utaddr pc,npc,size,i;
 
-          size = databss ? file_size(sec) : get_sec_size(sec);
+          size = databss ? file_size(sec) : sect_size(sec);
           fw32(f,(size+3)>>2,1);
           for (a=sec->first,pc=0; a!=NULL&&pc<size; a=a->next) {
             rlist *rl;
@@ -851,7 +892,7 @@ static void write_exec(FILE *f,section *sec,symbol *sym)
 
             pc = npc + atom_size(a,sec,npc);
           }
-          if (type == HUNK_CODE && (pc&1) == 0)
+          if (type == HUNK_CODE && (pc&1) == 0 && a == NULL)
             fwnopalign(f,pc);
           else
             fwalign(f,pc,4);
@@ -864,6 +905,7 @@ static void write_exec(FILE *f,section *sec,symbol *sym)
         reloc_hunk(f,HUNK_ABSRELOC32,0,&reloclist);
         if (!kick1)  /* RELRELOC32 works with short 16-bit offsets only! */
           reloc_hunk(f,HUNK_RELRELOC32,1,&reloclist);
+        report_bad_relocs(&reloclist);
 
         if (!no_symbols) {
           /* symbol table */

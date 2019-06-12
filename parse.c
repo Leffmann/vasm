@@ -436,6 +436,23 @@ static size_t dirlist_minlen(struct namelen *list)
 }
 
 
+/* return the line number of the last real source text instance, i.e.
+   not the line within a macro or repetition */
+int real_line(void)
+{
+  source *src = cur_src;
+  int line = src->line;
+
+  while (src->num_params >= 0) {
+    line = src->parent_line;
+    src = src->parent;
+    if (src == NULL)
+      ierror(0);  /* macro must have a parent */
+  }
+  return line;
+}
+
+
 void new_repeat(int rcnt,char *name,char *vals,
                 struct namelen *reptlist,struct namelen *endrlist)
 {

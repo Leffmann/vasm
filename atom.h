@@ -1,5 +1,5 @@
 /* atom.h - atomic objects from source */
-/* (c) in 2010-2018 by Volker Barthelmann and Frank Wille */
+/* (c) in 2010-2019 by Volker Barthelmann and Frank Wille */
 
 #ifndef ATOM_H
 #define ATOM_H
@@ -53,7 +53,9 @@ struct sblock {
   expr *fill_exp;   /* copied to fill, when evaluated - may be NULL */
   rlist *relocs;
   taddr maxalignbytes;
+  uint32_t flags;
 };
+#define SPC_DATABSS 1  /* make sure no to allocate space in a data section */
 
 typedef struct printexpr {
   expr *print_exp;

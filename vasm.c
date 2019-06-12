@@ -1,5 +1,5 @@
 /* vasm.c  main module for vasm */
-/* (c) in 2002-2018 by Volker Barthelmann */
+/* (c) in 2002-2019 by Volker Barthelmann */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -10,8 +10,8 @@
 #include "stabs.h"
 #include "dwarf.h"
 
-#define _VER "vasm 1.8e"
-char *copyright = _VER " (c) in 2002-2018 Volker Barthelmann";
+#define _VER "vasm 1.8f"
+char *copyright = _VER " (c) in 2002-2019 Volker Barthelmann";
 #ifdef AMIGA
 static const char *_ver = "$VER: " _VER " " __AMIGADATE__ "\r\n";
 #endif
@@ -73,6 +73,7 @@ static section *prev_sec,*prev_org;
 hashtable *mnemohash;
 
 static int verbose=1,auto_import=1;
+static int fail_on_warning;
 static struct include_path *first_incpath;
 static struct source_file *first_source;
 
@@ -104,7 +105,7 @@ void leave(void)
     }
   }
 
-  if(errors)
+  if(errors||(fail_on_warning&&warnings))
     exit(EXIT_FAILURE);
   else
     exit(EXIT_SUCCESS);
@@ -752,6 +753,10 @@ int main(int argc,char **argv)
     }
     else if(!strcmp("-w",argv[i])){
       no_warn=1;
+      continue;
+    }
+    else if(!strcmp("-wfail",argv[i])){
+      fail_on_warning=1;
       continue;
     }
     if(!strncmp("-maxerrors=",argv[i],11)){

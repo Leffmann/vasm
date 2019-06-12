@@ -146,6 +146,10 @@ or additional options.
 @item -w
         Hide all warning messages.
 
+@item -wfail
+        The return code of vasm will no longer be 0 (success), when there
+        was a warning. Errors always make the return code fail.
+
 @item -x
         Show an error message, when referencing an undefined symbol.
         The default behaviour is to declare this symbol as externally

@@ -1,5 +1,5 @@
 /* vasm.h  main header file for vasm */
-/* (c) in 2002-2018 by Volker Barthelmann */
+/* (c) in 2002-2019 by Volker Barthelmann */
 
 #include <stdlib.h>
 #include <stddef.h>
@@ -230,7 +230,7 @@ void write_listing(char *);
 #define getdebugname() debug_filename
 
 /* provided by error.c */
-extern int errors;
+extern int errors,warnings;
 extern int max_errors;
 extern int no_warn;
 

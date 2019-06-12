@@ -1,5 +1,5 @@
 /* atom.c - atomic objects from source */
-/* (c) in 2010-2018 by Volker Barthelmann and Frank Wille */
+/* (c) in 2010-2019 by Volker Barthelmann and Frank Wille */
 
 #include "vasm.h"
 
@@ -148,6 +148,7 @@ sblock *new_sblock(expr *space,size_t size,expr *fill)
     memset(sb->fill,0,MAXPADBYTES);
   sb->relocs = 0;
   sb->maxalignbytes = 0;
+  sb->flags = 0;
   return sb;
 }
 

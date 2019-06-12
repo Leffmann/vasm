@@ -58,6 +58,7 @@ char *parse_symbol(char **);
 char *parse_labeldef(char **,int);
 int check_indir(char *,char *);
 void include_binary_file(char *,long,unsigned long);
+int real_line(void);
 void new_repeat(int,char *,char *,struct namelen *,struct namelen *);
 int find_macarg_name(source *,char *,size_t);
 struct macarg *addmacarg(struct macarg **,char *,char *);

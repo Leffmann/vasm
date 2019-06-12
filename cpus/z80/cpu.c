@@ -1861,10 +1861,27 @@ dblock *eval_instruction(instruction *ip,section *sec,taddr pc)
         }
         /* forbid ld ixl,(hl) or similar expressions */
         if ( (ip->op[0]->reg & (REG_IX|REG_IY)) &&
-             (ip->op[1]->reg & REG_PLAIN) == REG_HLREF)
-        {
+             (ip->op[1]->reg & REG_PLAIN) == REG_HLREF) {
             cpu_error(24,opcode->name);
         }
+        /* forbid ld ixh/l,h/l and ld iyh/l,h/l */
+        if ( ( (ip->op[0]->reg & (REG_IX|REG_IY)) &&
+               !(ip->op[0]->reg & REG_INDEX) ) &&
+             ( !(ip->op[1]->reg & (REG_IX|REG_IY)) &&
+               ( ((ip->op[1]->reg & REG_PLAIN) == REG_H) ||
+                 ((ip->op[1]->reg & REG_PLAIN) == REG_L) ) )
+           ) {
+            cpu_error(24,opcode->name);
+        }
+        /* forbid ld h/l,ixh/l and ld h/l,iyh/l */
+        if ( ( (ip->op[1]->reg & (REG_IX|REG_IY)) &&
+               !(ip->op[1]->reg & REG_INDEX) ) &&
+             ( !(ip->op[0]->reg & (REG_IX|REG_IY)) &&
+               ( ((ip->op[0]->reg & REG_PLAIN) == REG_H) ||
+                 ((ip->op[0]->reg & REG_PLAIN) == REG_L) ) )
+           ) {
+            cpu_error(24,opcode->name);
+        }               
         offs =  ((ip->op[0]->reg & REG_PLAIN) * 8) + ( ip->op[1]->reg & REG_PLAIN);
         break;
     case TYPE_ARITH16:

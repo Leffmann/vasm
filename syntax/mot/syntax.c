@@ -1,5 +1,5 @@
 /* syntax.c  syntax module for vasm */
-/* (c) in 2002-2018 by Frank Wille */
+/* (c) in 2002-2019 by Frank Wille */
 
 #include "vasm.h"
 
@@ -12,7 +12,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm motorola syntax module 3.12 (c) 2002-2018 Frank Wille";
+char *syntax_copyright="vasm motorola syntax module 3.12c (c) 2002-2019 Frank Wille";
 hashtable *dirhash;
 char commentchar = ';';
 
@@ -51,6 +51,13 @@ static int allow_spaces;
 static int check_comm;
 static int dot_idchar;
 static char local_char = '.';
+
+/* (currenty two-byte only) padding value for CNOPs */
+#ifdef VASM_CPU_M68K
+static taddr cnop_pad = 0x4e71;
+#else
+static taddr cnop_pad = 0;
+#endif
 
 /* unique macro IDs */
 #define IDSTACKSIZE 100
@@ -228,8 +235,11 @@ static symbol *new_setoffset_size(char *equname,char *symname,
 
     new = make_expr(dir>0?ADD:SUB,old,new);
   }
-  else
+  else {
     new = old = sym->expr;
+    if (devpac_compat)
+      general_error(9);  /* Devpac requires an expression here */
+  }
 
   /* assign expression to equ-symbol and change exp. of the offset-symbol */
   if (equname)
@@ -286,19 +296,27 @@ static symbol *new_setoffset(char *equname,char **s,char *symname,int dir)
 }
 
 
-static void do_space(int size,expr *cnt,expr *fill)
+static atom *do_space(int size,expr *cnt,expr *fill)
 {
   atom *a;
 
   a = new_space_atom(cnt,size>>3,fill);
   a->align = align_data ? DATA_ALIGN(size) : 1;
   add_atom(0,a);
+  return a;
 }
 
 
 static void handle_space(char *s,int size)
 {
   do_space(size,parse_expr_tmplab(&s),0);
+}
+
+
+static void handle_xspace(char *s,int size)
+{
+  atom *a = do_space(size,parse_expr_tmplab(&s),0);
+  a->content.sb->flags |= SPC_DATABSS;
 }
 
 
@@ -702,13 +720,12 @@ static void handle_cnop(char *s)
   else
     syntax_error(9);  /* , expected */
 
-#ifdef VASM_CPU_M68K
-  /* align with NOP instructions in an M68k code section */
+  /* align with cnop_pad in a code section, otherwise with zero */
+  /* @@@ number of padding bytes should be variable for different archs. ? */
   if (!devpac_compat && align>3 &&
       (current_section==NULL || strchr(current_section->attr,'c')!=NULL))
-    do_alignment(align,offset,2,number_expr(0x4e71));
+    do_alignment(align,offset,2,number_expr(cnop_pad));
   else
-#endif
     do_alignment(align,offset,1,NULL);
 }
 
@@ -742,6 +759,36 @@ static void handle_block(char *s,int size)
     fill = parse_expr_tmplab(&s);
   }
   do_space(size,cnt,fill);
+}
+
+
+static void handle_xspc8(char *s)
+{
+  handle_xspace(s,8);
+}
+
+
+static void handle_xspc16(char *s)
+{
+  handle_xspace(s,16);
+}
+
+
+static void handle_xspc32(char *s)
+{
+  handle_xspace(s,32);
+}
+
+
+static void handle_xspc64(char *s)
+{
+  handle_xspace(s,64);
+}
+
+
+static void handle_xspc96(char *s)
+{
+  handle_xspace(s,96);
 }
 
 
@@ -1544,6 +1591,14 @@ struct {
   "ds.s",P|D,handle_spc32,
   "ds.d",P|D,handle_spc64,
   "ds.x",P|D,handle_spc96,
+  "dx",P,handle_xspc16,
+  "dx.b",P,handle_xspc8,
+  "dx.w",P,handle_xspc16,
+  "dx.l",P,handle_xspc32,
+  "dx.q",P,handle_xspc64,
+  "dx.s",P,handle_xspc32,
+  "dx.d",P,handle_xspc64,
+  "dx.x",P,handle_xspc96,
   "dcb",P|D,handle_blk16,
   "dcb.b",P|D,handle_blk8,
   "dcb.w",P|D,handle_blk16,
@@ -1875,8 +1930,7 @@ void parse(void)
       continue;
     s = line;
     if (!phxass_compat && !devpac_compat)
-      set_internal_abs(line_name,cur_src->defsrc?
-                       cur_src->defline+cur_src->line:cur_src->line);
+      set_internal_abs(line_name,real_line());
 
     if (!cond_state()) {
       /* skip source until ELSE or ENDIF */
@@ -2476,6 +2530,13 @@ int syntax_args(char *p)
   }
   else if (!strcmp(p,"-warncomm")) {
     check_comm = 1;
+    return 1;
+  }
+  else if (!strncmp(p,"-cnop=",6)) {
+    int pad_code;
+
+    sscanf(p+6,"%i",&pad_code);
+    cnop_pad = (uint16_t)pad_code;
     return 1;
   }
   return 0;

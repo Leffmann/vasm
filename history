@@ -1,6 +1,31 @@
 vasm history
 =============
 
+- 1.8f (10.06.19)
+o New option -wfail makes vasm return with an error code not only for
+  errors but also for warnings.
+o 6502: Added missing WDC65C02 instructions (-wdc02): STP and WAI.
+o m68k: Warn about DIVxL.L with identical quotient and remainder registers.
+o m68k: Do not optimize or translate PC-relative addressing modes when
+  the referenced symbol is in a different section.
+o m68k: RTD operand should be signed.
+o m68k: Automatic optimization of absolute to base-relative addressing
+  (-sd option) must only be done when the target address is between offset
+  0 and 65535 in the small data section.
+o z80: Forbid ixh/ixl operands on one side with h/l on the other.
+o mot-syntax: Structure directives (RS, SO, FO) without an offset-expression
+  are not allowed in Devpac-compatibility mode (-devpac).
+o mot-syntax: __LINE__ represents the correct line number again, after it
+  had been broken in the last version.
+o mot-syntax: New directive DX for ProAsm/Barfly compatibility. Used to
+  create DataBss space in an executable file. Otherwise identical to DS.
+o mot-syntax: New option -cnop=<code> sets a two-byte code for padding
+  CNOP-alignments. Defaults to 0x4e71 for M68k.
+o output-hunk: Make sure all unsupported relocations in hunk-executables
+  are reported. Do not generate an executable with missing relocs.
+o output-hunk: Do not pad a code section with 0x4e71 when skipping
+  DataBss contents at this point (-databss with -Fhunkexe).
+
 - 1.8e (28.12.18)
 o New option -dwarf automatically generates line debug information for
   source level debugging in DWARF V2 or DWARF V3 format.

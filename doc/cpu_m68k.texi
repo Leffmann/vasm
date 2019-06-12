@@ -3,7 +3,7 @@ microprocessor family.
 
 @section Legal
 
-    This module is written in 2002-2017 by Frank Wille and
+    This module is written in 2002-2019 by Frank Wille and
     is covered by the vasm copyright without modifications.
 
 
@@ -1023,5 +1023,6 @@ This module has the following error messages:
 @item 2063: register list on both sides
 @item 2064: "%s" directive was replaced by an instruction with the same name
 @item 2065: Addr.reg. operand at level #0 causes F-line exception
+@item 2066: Dr and Dq are identical, transforming DIVxL.L effectively into DIVx.L
 
 @end itemize

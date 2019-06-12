@@ -27,7 +27,7 @@ This module provides the following additional options:
         "B<!cc> *+3 ; JMP label" sequences when necessary.
     @item -wdc02
         Recognize all 65C02 instructions and the WDC65C02 extensions
-        (RMB,SMB,BBR,BBS).
+        (RMB,SMB,BBR,BBS,STP,WAI).
 @end table
 
 @section General

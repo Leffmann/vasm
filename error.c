@@ -1,5 +1,5 @@
 /* error.c - error output and modification routines */
-/* (c) in 2002-2018 by Volker Barthelmann and Frank Wille */
+/* (c) in 2002-2019 by Volker Barthelmann and Frank Wille */
 
 #include <stdarg.h>
 #include "vasm.h"
@@ -25,9 +25,9 @@ struct err_out output_err_out[]={
 };
 int output_errors=sizeof(output_err_out)/sizeof(output_err_out[0]);
 
-int errors;
+int errors,warnings;
 int max_errors=5;
-int no_warn=0;
+int no_warn;
 
 
 static void print_source_line(FILE *f)
@@ -112,8 +112,10 @@ static void error(int n,va_list vl,struct err_out *errlist,int offset)
     ++errors;
     fprintf(f,"error");
   }
-  else if (flags & WARNING)
+  else if (flags & WARNING) {
+    ++warnings;
     fprintf(f,"warning");
+  }
   else if (flags & MESSAGE)
     fprintf(f,"message");
   fprintf(f," %d",n+offset);
