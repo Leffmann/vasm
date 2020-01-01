@@ -12,7 +12,7 @@
    be provided by the main module.
 */
 
-char *syntax_copyright="vasm motorola syntax module 3.12c (c) 2002-2019 Frank Wille";
+char *syntax_copyright="vasm motorola syntax module 3.13 (c) 2002-2019 Frank Wille";
 hashtable *dirhash;
 char commentchar = ';';
 
@@ -51,6 +51,7 @@ static int allow_spaces;
 static int check_comm;
 static int dot_idchar;
 static char local_char = '.';
+static int tosout;  /* output is for Atari TOS */
 
 /* (currenty two-byte only) padding value for CNOPs */
 #ifdef VASM_CPU_M68K
@@ -133,7 +134,7 @@ int isidchar(char c)
     return 1;
   if (phxass_compat && (unsigned char)c>=0x80)
     return 1;
-  if (devpac_compat && c=='?')
+  if (devpac_compat && (c=='?' || c=='@'))
     return 1;
   return 0;
 }
@@ -435,16 +436,28 @@ static void handle_section(char *s)
     /* read section type and memory attributes */
     s = read_sec_attr(attr,skip(s+1),&mem);
   }
-  else {
-    /* only name is given - guess type from name */
-    if (!stricmp(name,"data"))
+  else if (tosout) {
+    /* only name is given - guess type from name for Atari TOS */
+    if (!stricmp(name,"data")) {
       strcpy(attr,data_type);
-    else if (!stricmp(name,"bss"))
+      name = data_name;
+    }
+    else if (!stricmp(name,"bss")) {
       strcpy(attr,bss_type);
-    else
+      name = bss_name;
+    }
+    else if (!stricmp(name,"code") || !stricmp(name,"text")) {
       strcpy(attr,code_type);
-    if (devpac_compat && !stricmp(name,"text"))
       name = code_name;
+    }
+    else {
+      syntax_error(13);  /* illegal section type */
+      s = NULL;
+    }
+  }
+  else {
+    /* missing section type defaults to CODE */
+    strcpy(attr,code_type);
   }
 
   if (s) {
@@ -1229,9 +1242,9 @@ static void handle_ifmacrond(char *s)
   ifmacro(s,0);
 }
 
-static void ifexp(char *s,int c)
+static int eval_ifexp_advance(char **s,int c)
 {
-  expr *condexp = parse_expr_tmplab(&s);
+  expr *condexp = parse_expr_tmplab(s);
   taddr val;
   int b;
 
@@ -1250,8 +1263,51 @@ static void ifexp(char *s,int c)
     general_error(30);  /* expression must be constant */
     b = 0;
   }
-  cond_if(b);
   free_expr(condexp);
+  return b;
+}
+
+static int eval_ifexp(char *s,int c)
+{
+  return eval_ifexp_advance(&s,c);
+}
+
+static void ifexp(char *s,int c)
+{
+  cond_if(eval_ifexp(s,c));
+}
+
+/* Move line_ptr to the end of the string if the parsing should stop,
+   otherwise move line_ptr after the iif directive and the expression
+   so the parsing can continue and return the new line_ptr.
+   The string is never modified. */
+static char *handle_iif(char *line_ptr)
+{
+  if (strnicmp(line_ptr,"iif",3) == 0 &&
+      isspace((unsigned char)line_ptr[3])) {
+    line_ptr += 3;
+
+    /* Move the line ptr to the beginning of the iif expression. */
+    line_ptr = skip(line_ptr);
+
+    /* As eval_ifexp_advance() may modify the input string, duplicate
+       it for the case when the parsing should continue. */
+    char *expr_copy = mystrdup(line_ptr);
+    char *expr_end = expr_copy;
+    const int condition = eval_ifexp_advance(&expr_end,1);
+    size_t expr_len = expr_end - expr_copy;
+    myfree(expr_copy);
+
+    if (condition) {
+      /* Parsing should continue after the expression, from the next field. */
+      line_ptr += expr_len;
+      line_ptr = skip(line_ptr);
+    } else {
+      /* Parsing should stop, move ptr to the end of the line. */
+      line_ptr += strlen(line_ptr);
+    }
+  }
+  return line_ptr;
 }
 
 static void handle_ifeq(char *s)
@@ -1736,9 +1792,8 @@ static int check_directive(char **line)
   return data.idx;
 }
 
-
-/* Handles assembly directives; returns non-zero if the line
-   was a directive. */
+/* Handles assembly directives;
+   returns non-zero if the parsing of the line should stop. */
 static int handle_directive(char *line)
 {
   int idx = check_directive(&line);
@@ -1967,7 +2022,11 @@ void parse(void)
         symflags |= EXPORT;
         s++;
       }
+
       s = skip(s);
+
+      s = handle_iif(s);
+
       if (!strnicmp(s,"equ",3) && isspace((unsigned char)*(s+3))) {
         s = skip(s+3);
         label = new_equate(labname,parse_expr_tmplab(&s));
@@ -2034,6 +2093,8 @@ void parse(void)
     s = skip(s);
     if (*s=='\0' || *s=='*' || *s==commentchar)
       continue;
+
+    s = handle_iif(s);
 
     s = parse_cpu_special(s);
     if (ISEOL(s))
@@ -2443,6 +2504,8 @@ int init_syntax()
   else if (phxass_compat) avail = 2;
   else avail = 0;
 
+  tosout = !strcmp(output_format,"tos");
+
   dirhash = new_hashtable(0x200); /* @@@ */
   for (i=0; i<dir_cnt; i++) {
     if ((directives[i].avail & avail) == avail) {
@@ -2503,7 +2566,6 @@ int syntax_args(char *p)
     align_data = 1;
     esc_sequences = 0;
     allmp = 1;
-    dot_idchar = 1;
     warn_unalloc_ini_dat = 1;
     return 1;
   }
@@ -2513,6 +2575,7 @@ int syntax_args(char *p)
     esc_sequences = 1;
     nocase_macros = 1;
     allow_spaces = 1;
+    dot_idchar = 1;
     allmp = 1;
     return 1;
   }
