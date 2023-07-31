@@ -1,6 +1,10 @@
 vasm history
 =============
 
+- 1.9c (29.03.23)
+o Reverted a last-minute change in V1.9b, which broke the O65 output module,
+  used with 6502 and 65816.
+
 - 1.9b (26.03.23)
 o Fixed a rare expression evalulation bug. Previous versions may erroneously
   evaluate "label - equate" as constant, when the equate is something like

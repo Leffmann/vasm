@@ -10,8 +10,8 @@
 #include "stabs.h"
 #include "dwarf.h"
 
-#define _VER "vasm 1.9b"
-static const char *copyright = _VER " (c) in 2002-2023 Volker Barthelmann";
+#define _VER "vasm 1.9c"
+const char *copyright = _VER " (c) in 2002-2023 Volker Barthelmann";
 #ifdef AMIGA
 static const char *_ver = "$VER: " _VER " " __AMIGADATE__ "\r\n";
 #endif
